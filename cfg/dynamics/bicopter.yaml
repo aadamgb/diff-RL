@@ -64,8 +64,3 @@ max_rotor_speed:
 max_omega:
 
 
-
-
-# ----------
-hydra_logging: disabled
-job_logging: disabled
