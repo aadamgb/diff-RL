@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from omegaconf import DictConfig
 
 #    T1       T2
@@ -12,49 +13,58 @@ class BicopterDynamics:
     State: [x, y, vx, vy, theta, omega]
     Action: [Ω1, Ω2] (rotor speeds)
     """
-    def __init__(
-            self,
-            cfg: DictConfig,
-            dt=0.01,
-            mass=1.0,
-            arm_length=0.2,
-            inertia=0.01,
-            gravity=9.81,
-            max_thrust=25.0, # (Per rotor)
-            # max_torque=10.0,
-            device="cpu",
-            
-    ):
+    def __init__(self, cfg: DictConfig, dt=0.01, device="cpu"):
+
         self.dt = dt
-        self.m = mass
-        self.l = arm_length
-        self.I = inertia
-        self.g = gravity
-
-        self.T_max = max_thrust
-        # self.tau_max = max_torque
-
-        self.cfg = cfg
         self.device = device
+        self.cfg = cfg
+
+        self.m = cfg.mass.nominal
+        self.l = cfg.arm_l.nominal
+        self.I = cfg.J.nominal
+        self.g = cfg.g
+
+        self.C_Dx = cfg.C_D.x.nominal
+        self.C_Dy = cfg.C_D.y.nominal
+        self.rho = cfg.rho
+
+        self.k1 = cfg.thrust_map.k1.nominal
+        self.km_up = cfg.km.up.nominal
+        self.km_down = cfg.km.down.nominal
+
+        self.Ti_max = cfg.Ti_max  # per rotor
     
     def step(self, state, action, control_mode="srt"):
         """
         Updates the dynamics. 
         """
-        x, y, vx, vy, theta, omega = torch.unbind(state, dim=-1)
+        x, y, vx, vy, theta, omega, Omega1, Omega2 = torch.unbind(state, dim=-1)
 
-        T1, T2 = self._get_control(state, action, control_mode)
+        T1_cmd, T2_cmd = self._get_control(state, action, control_mode)
 
-        T1 = self.T_max * torch.tanh(torch.nn.functional.softplus(T1) / self.T_max)
-        T2 = self.T_max * torch.tanh(torch.nn.functional.softplus(T2) / self.T_max)
+        T1_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1_cmd) / self.Ti_max)
+        T2_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2_cmd) / self.Ti_max)
 
-        T = T1 + T2
-        tau = self.l * (T2 - T1)
+        T = T1_cmd + T2_cmd
+        tau = self.l * (T2_cmd - T1_cmd)
 
-        ax = -torch.sin(theta) * T / self.m
-        ay =  torch.cos(theta) * T / self.m - self.g
+        allocation_matrix = np.array([[1.0, 1.0], [-self.l, self.l]])
+
+        # Drag  TODO: Maybe drag coeffs would be even worth to randomize at each time step**
+        v_norm = torch.sqrt(vx**2 + vy**2 + 1e-6)
+        area_x = self.l * 0.1    # 0.1 is just an arbitrary factor
+        area_y = self.l
+        drag_x = 0.5 * self.rho * self.C_Dx * area_x * v_norm * vx
+        drag_y = 0.5 * self.rho * self.C_Dy * area_y * v_norm * vy
+
+        # Translational dynamics
+        ax =  (-torch.sin(theta) * T - drag_x) / self.m
+        ay =  ( torch.cos(theta) * T - self.m * self.g - drag_y) / self.m
+        
+        # Rotational dynamics
         alpha = tau / self.I
 
+        # Integrate
         vx = vx + ax * self.dt
         vy = vy + ay * self.dt
         omega = omega + alpha * self.dt
@@ -133,6 +143,18 @@ class BicopterDynamics:
 
         # return f_drag
         pass
+
+    def randomize_parameters(self, params: dict):
+        '''
+        Setting the randomized params 
+        '''
+        self.m = params["m"]
+        self.l = params["l"]
+        self.I = params["J"]
+        self.C_Dx = params["C_Dx"]
+        self.C_Dy = params["C_Dy"]
+        self.k1 = params["k1"]
+
     
 
 

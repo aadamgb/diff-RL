@@ -55,7 +55,7 @@ def train(cfg: DictConfig):
         traj_gen.reset()
         print(scale_randomization(cfg))
 
-        states = torch.zeros((num_envs, 6), device=device)
+        states = torch.zeros((num_envs, 8), device=device)
         states[:, :2] = torch.rand((num_envs, 2), device=device) * 5.0
         
         epoch_loss = 0.0

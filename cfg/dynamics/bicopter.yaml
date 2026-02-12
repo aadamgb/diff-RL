@@ -7,7 +7,6 @@ sf: # Scale factor
   randomize: True
   min: 0.0
   max: 1.0
-
 arm_l:
   nominal: 0.2
   randomize: True
@@ -56,11 +55,13 @@ thrust_map: # thrust = k1 * \Omega^2 + k2 * \Omega + k3
   k3:
 
 
-min_T:
-max_T:
-min_rotor_speed:
-max_rotor_speed:
+Ti_min:
+Ti_max: 25.0     # per rotor
+rotor_speed_min:
+rotor_speed_max:
 
-max_omega:
+omega_max:
 
 
+g: 9.81     # gravity acc [m/s^^2]
+rho: 1.225  # standard atm density at sea level [kg/m^3] 

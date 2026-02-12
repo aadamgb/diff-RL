@@ -1,11 +1,13 @@
 import pygame
 import numpy as np
 from dynamics.bicopter_dynamics import BicopterDynamics
+import cv2
+import os
 
 drone = BicopterDynamics()
 
 class MultiTrajectoryRenderer:
-    def __init__(self, width=1280, height=900, scale=100, fps=60, l=0.2):
+    def __init__(self, width=1280, height=900, scale=100, fps=60, l=0.2, video_path=None):
         pygame.init()
         self.width = width
         self.height = height
@@ -21,6 +23,14 @@ class MultiTrajectoryRenderer:
         self.running = True
 
         self.l = l
+        
+        # Video writer setup
+        self.video_path = video_path
+        self.video_writer = None
+        if video_path:
+            os.makedirs(os.path.dirname(video_path) if os.path.dirname(video_path) else ".", exist_ok=True)
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            self.video_writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
 
     def to_screen(self, x, y):
         return (
@@ -37,6 +47,21 @@ class MultiTrajectoryRenderer:
             "color": color,
             "name": name
         })
+    
+    def _save_frame(self):
+        """Save current pygame surface to video file."""
+        if self.video_writer is None:
+            return
+        
+        # Get the current pygame surface
+        frame_surface = pygame.surfarray.array3d(self.screen)
+        # Convert from (width, height, 3) to (height, width, 3)
+        frame_surface = np.transpose(frame_surface, (1, 0, 2))
+        # Convert RGB to BGR for OpenCV
+        frame_bgr = cv2.cvtColor(frame_surface.astype(np.uint8), cv2.COLOR_RGB2BGR)
+        # Write frame to video
+        self.video_writer.write(frame_bgr)
+        
         
     def draw_arrow(self, start, end, color, width=3, head_len=8, head_width=6):
         pygame.draw.line(self.screen, color, start, end, width)
@@ -184,8 +209,16 @@ class MultiTrajectoryRenderer:
                 self.draw_agent(agent)
 
             pygame.display.flip()
+            
+            # Save frame to video if enabled
+            self._save_frame()
 
             self.frame = min(self.frame + 1, max_len - 1)
             self.clock.tick(self.fps)
+
+        # Clean up video writer
+        if self.video_writer:
+            self.video_writer.release()
+            print(f"Video saved to: {self.video_path}")
 
         pygame.quit()
