@@ -1,15 +1,20 @@
 import torch
-import math
+from omegaconf import DictConfig
+
+#    T1       T2
+#  _____    _____
+#    |________|
 
 class BicopterDynamics:
     """
     Differentiable 2D bicopter dynamics class.
 
     State: [x, y, vx, vy, theta, omega]
-    Action: motor/rates/velocity
+    Action: [Ω1, Ω2] (rotor speeds)
     """
     def __init__(
             self,
+            cfg: DictConfig,
             dt=0.01,
             mass=1.0,
             arm_length=0.2,
@@ -17,8 +22,8 @@ class BicopterDynamics:
             gravity=9.81,
             max_thrust=25.0, # (Per rotor)
             # max_torque=10.0,
-            device="cpu"
-
+            device="cpu",
+            
     ):
         self.dt = dt
         self.m = mass
@@ -29,6 +34,7 @@ class BicopterDynamics:
         self.T_max = max_thrust
         # self.tau_max = max_torque
 
+        self.cfg = cfg
         self.device = device
     
     def step(self, state, action, control_mode="srt"):
@@ -56,7 +62,6 @@ class BicopterDynamics:
         x = x + vx * self.dt
         y = y + vy * self.dt
         theta = theta + omega * self.dt
-
         return torch.stack([x, y, vx, vy, theta, omega], dim=-1)
     
     def _get_control(self, state, action, mode):
@@ -117,4 +122,17 @@ class BicopterDynamics:
         
     def _bounded_gain(self, x, k_min, k_max):
         return k_min + (k_max - k_min) * torch.sigmoid(x)
+    
+    def _calculate_drag(self, state):
+
+        v_body = state[..., 2:3]
+        
+        
+
+        # f_drag = -0.5 * self.rho * self.C_D * self.area * v_body.norm() * v_body
+
+        # return f_drag
+        pass
+    
+
 

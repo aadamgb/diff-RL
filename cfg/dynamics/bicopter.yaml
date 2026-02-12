@@ -34,26 +34,26 @@ C_D:
     randomize: True
     min: 0.05
     max: 0.15
-C_F:
+c_tf: # linear torque constant: torque = c_tf * thrust
   nominal: 0.012
   randomize: True
   min: 0.005
   max: 0.015
-motor_tau:
+km: # motor time constant: \dot{\Omega} = 1/km * (\Omega_cmd - \Omega) 
   up:
     nominal: 0.01
     randomize: True
     min: 0.005
     max: 0.015
   down:
-thrust_map:
-  a0:
+thrust_map: # thrust = k1 * \Omega^2 + k2 * \Omega + k3
+  k1:
     nominal: 0.000000045
     randomize: True
     min: 0.000000015
     max: 0.000000075
-  a1:
-  a2:
+  k2:
+  k3:
 
 
 min_T:

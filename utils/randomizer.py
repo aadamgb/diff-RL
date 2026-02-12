@@ -9,16 +9,15 @@ def scale_randomization(cfg: DictConfig):
     J = np.round(((l**5 - cfg.arm_l.min**5) / (cfg.arm_l.max**5 - cfg.arm_l.min**5)) * (cfg.J.max - cfg.J.min) + cfg.J.min, 3)
     C_Dx = np.round(((l**2 - cfg.arm_l.min**2) / (cfg.arm_l.max**2 - cfg.arm_l.min**2)) * (cfg.C_D.x.max - cfg.C_D.x.min) + cfg.C_D.x.min, 3)
     C_Dy = np.round(((l**2 - cfg.arm_l.min**2) / (cfg.arm_l.max**2 - cfg.arm_l.min**2)) * (cfg.C_D.y.max - cfg.C_D.y.min) + cfg.C_D.y.min, 3)
-    C_F = np.round(cfg.C_F.min * (cfg.C_F.max / cfg.C_F.min)**c, 3)
+    k1 = cfg.thrust_map.k1.min * (cfg.thrust_map.k1.max / cfg.thrust_map.k1.min)**c
 
-    print(f"\nScale factor c = {c} | Noise factor ={cfg.nf}\n")
+    print(f"\nScale factor c = {c} | Noise factor = {cfg.nf}\n")
     
-    return {"l": l, "m": m, "J": J, "C_Dx": C_Dx, "C_Dy": C_Dy, "C_F": C_F}
+    return {"l": l, "m": m, "J": J, "C_Dx": C_Dx, "C_Dy": C_Dy, "k1": k1}
 
-@hydra.main(config_path="../cfg/dynamics", config_name="bicopter", version_base=None)
 def noise_randomization(cfg: DictConfig):
     params = scale_randomization(cfg)
-    noisy_params = {k: np.round(v * (1 + np.random.uniform(-cfg.nf, cfg.nf)), 3) 
+    noisy_params = {k: v * (1 + np.random.uniform(-cfg.nf, cfg.nf)) 
                     for k, v in params.items()}
     
     for key in params:
