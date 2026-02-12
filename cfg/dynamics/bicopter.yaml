@@ -1,0 +1,71 @@
+name: simple_2D_drone
+
+nf: 0.2 # Noise factor
+
+sf: # Scale factor
+  nominal: 0.5
+  randomize: True
+  min: 0.0
+  max: 1.0
+
+arm_l:
+  nominal: 0.2
+  randomize: True
+  min: 0.1
+  max: 0.3
+mass:
+  nominal: 1.0
+  randomize: True
+  min: 0.5
+  max: 1.5
+J:
+  nominal: 0.01
+  randomize: True
+  min: 0.005
+  max: 0.015
+C_D:
+  x:
+    nominal: 0.01
+    randomize: True
+    min: 0.005
+    max: 0.015
+  y:
+    nominal: 0.1
+    randomize: True
+    min: 0.05
+    max: 0.15
+C_F:
+  nominal: 0.012
+  randomize: True
+  min: 0.005
+  max: 0.015
+motor_tau:
+  up:
+    nominal: 0.01
+    randomize: True
+    min: 0.005
+    max: 0.015
+  down:
+thrust_map:
+  a0:
+    nominal: 0.000000045
+    randomize: True
+    min: 0.000000015
+    max: 0.000000075
+  a1:
+  a2:
+
+
+min_T:
+max_T:
+min_rotor_speed:
+max_rotor_speed:
+
+max_omega:
+
+
+
+
+# ----------
+hydra_logging: disabled
+job_logging: disabled
