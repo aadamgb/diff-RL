@@ -9,9 +9,8 @@ from omegaconf import DictConfig
 class BicopterDynamics:
     """
     Differentiable 2D bicopter dynamics class.
-
-    State: [x, y, vx, vy, theta, omega]
-    Action: [Ω1, Ω2] (rotor speeds)
+    
+    State: [x, y, vx, vy, theta, omega, Omega1, Omega2]
     """
     def __init__(self, cfg: DictConfig, dt=0.01, device="cpu"):
 
@@ -62,14 +61,8 @@ class BicopterDynamics:
         T = T1 + T2
         tau = self.l * (T2 - T1)
 
-        # Calculating the translational drag (quadratic drag model)
-        # (note that rotational body drag an propelers drag is neglected)
-        v_norm = torch.sqrt(vx**2 + vy**2 + 1e-6)
-        area_x = self.l * 0.1    # 0.1 is just an arbitrary factor
-        area_y = self.l
-        drag_x = 0.5 * self.rho * self.C_Dx * area_x * v_norm * vx
-        drag_y = 0.5 * self.rho * self.C_Dy * area_y * v_norm * vy
-        # Drag  TODO: Maybe drag coeffs would be even worth to randomize at each time step**
+        # Calculate drag forces
+        drag_x, drag_y = self.calculate_drag(vx, vy, theta)
 
         # Translational dynamics
         ax =  (-torch.sin(theta) * T - drag_x) / self.m
@@ -78,7 +71,7 @@ class BicopterDynamics:
         # Rotational dynamics
         alpha = tau / self.J
 
-        # Integrate (semi-implicit Euler)
+        # Integrate (Semi-Implicit Euler)
         vx = vx + ax * self.dt
         vy = vy + ay * self.dt
         omega = omega + alpha * self.dt
@@ -87,6 +80,32 @@ class BicopterDynamics:
         y = y + vy * self.dt
         theta = theta + omega * self.dt
         return torch.stack([x, y, vx, vy, theta, omega, Omega1, Omega2], dim=-1)
+    
+    def calculate_drag(self, vx, vy, theta):
+        """
+        Calculate translational drag forces using quadratic drag model in body frame.
+        Converts world-frame velocities to body frame, calculates drag, then converts back to world frame.
+        (note that rotational body drag and propeller drag is neglected)
+        """
+        # Convert world-frame velocities to body-frame
+        cos_theta = torch.cos(theta)
+        sin_theta = torch.sin(theta)
+        
+        vx_body = vx * cos_theta + vy * sin_theta
+        vy_body = -vx * sin_theta + vy * cos_theta
+        
+        # Calculate drag in body frame (quadratic drag)
+        v_norm = torch.sqrt(vx_body**2 + vy_body**2 + 1e-6)
+        area_x = self.l * 1.0    # 0.1 arbitrary area sacling down factor for x
+        area_y = self.l
+        drag_x_body = 0.5 * self.rho * self.C_Dx * area_x * v_norm * vx_body
+        drag_y_body = 0.5 * self.rho * self.C_Dy * area_y * v_norm * vy_body
+        
+        # Convert body-frame drag forces back to world-frame
+        drag_x = drag_x_body * cos_theta - drag_y_body * sin_theta
+        drag_y = drag_x_body * sin_theta + drag_y_body * cos_theta
+        
+        return drag_x, drag_y
     
     def _get_control(self, state, action, mode):
         """
@@ -101,11 +120,10 @@ class BicopterDynamics:
         # Collective thrust and body rate (T, omega)
         elif mode == "ctbr":
             T_cmd = action[..., 0]
-            # omega_cmd = action[..., 1]
-            tau_cmd = action[..., 1]
+            omega_cmd = action[..., 1]
 
-            # kd = 0.5
-            # tau = kd * (omega_cmd - state[..., 5])
+            tau_cmd = self.J * (omega_cmd - state[..., 5]) / self.dt
+
             T1 = 0.5 * (T_cmd - tau_cmd / self.l)
             T2 = 0.5 * (T_cmd + tau_cmd / self.l)
             return T1, T2

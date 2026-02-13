@@ -36,7 +36,7 @@ def train(cfg: DictConfig):
 
     #================#
     # Control mode:
-    cm = "lv" 
+    cm = "ctbr" 
     #================#
 
     drone = BicopterDynamics(device=device, cfg=cfg)
@@ -135,7 +135,7 @@ def train(cfg: DictConfig):
         loss_history.append(avg_loss / num_envs)
 
         if epoch % 100 == 0 or epoch == (epochs-1):
-            print(f"Epoch {epoch}: Loss = {avg_loss:.4f}")
+            print(f"Epoch {epoch}: Loss = {avg_loss:.3f}")
 
 
     # Plot the loss
@@ -150,7 +150,7 @@ def train(cfg: DictConfig):
     # Export the model
     output_dir = os.path.join(os.path.dirname(__file__), "outputs")
     os.makedirs(output_dir, exist_ok=True)
-    torch.save(policy.state_dict(), os.path.join(output_dir, f"{cm}3.pt"))
+    torch.save(policy.state_dict(), os.path.join(output_dir, f"{cm}2.pt"))
     print("Policy saved!")
 
 

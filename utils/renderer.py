@@ -14,7 +14,7 @@ class MultiTrajectoryRenderer:
         self.scale = scale
         self.fps = fps
 
-        # self.screen = pygame.display.set_mode((width, height))
+        self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption("Multi-Policy Bicopter Viewer")
         self.clock = pygame.time.Clock()
 
@@ -23,6 +23,7 @@ class MultiTrajectoryRenderer:
         self.running = True
 
         self.l = l
+        self.dt = 0.01
         
         # Video writer setup
         self.video_path = video_path
@@ -48,91 +49,6 @@ class MultiTrajectoryRenderer:
             "name": name
         })
     
-    def plot_dashboard(self):
-        """Plot Omega1 and Omega2 (rotor speeds) over time for all agents."""
-        for agent_index, agent in enumerate(self.agents):
-            # 1. Data preparation
-            # Assuming 'action' contains sent actions and 'traj' contains states
-            action = agent["action"].squeeze()
-            traj = agent["traj"].squeeze()
-            target = agent["target"].squeeze()
-            
-            omegas = traj[:, 6:8]  # Omegas from trajectory
-            actions = action       # Actions (control commands)
-            time_steps = np.arange(len(omegas))
-
-            # 2. Figure setup (Dashboard)
-            # Create 2 rows and 2 column sharing X axis for easier reading
-            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2, figsize=(12, 8), sharex=True)
-            fig.suptitle(f'{agent.get("name") or f"Agent {agent_index}"}', fontsize=16)
-            
-            # Get and format environment parameters
-            env_params = self.drone.get_env_parameters()
-            params_str = ', '.join([f'{k} = {v.item():.2f}' if hasattr(v, 'item') else f'{k}: {v}' 
-                                     for k, v in env_params.items()])
-            
-            # Extract l and k1 as separate variables
-            l = env_params.get('l').item() 
-            k1 = env_params.get('k1').item()
-
-            fig.text(0.5, 0.93, f'{params_str}', ha='center', fontsize=13, 
-                     transform=fig.transFigure, verticalalignment='top')
-
-
-            # --- Upper plot Left: Policy Outputs ---
-            # Plot all action dimensions (if there are more than 2)
-            agent_name = agent.get("name", "").upper()
-            
-            if agent_name == "SRT":
-                action_labels = ["Thrust Motor 1", "Thrust Motor 2"]
-            elif agent_name == "CTBR":
-                action_labels = ["Collective Thrust", "Toruque"]
-            elif agent_name == "LV":
-                action_labels = ["vx", "vy", "kv", "kR", "kw"]
-            else:
-                action_labels = [f"Action Dim {i}" for i in range(actions.shape[1])]
-            
-            for i in range(actions.shape[1]):
-                label = action_labels[i] if i < len(action_labels) else f"Action Dim {i}"
-                ax1.plot(time_steps, actions[:, i], label=label, alpha=0.8) 
-            ax1.set_xlabel('Time Step')
-            ax1.set_ylabel('Control Value')
-            ax1.set_title('Control Actions Over Time')
-            ax1.legend(loc='upper right')
-            ax1.grid(True, alpha=0.3)
-
-
-            # --- Upper plot Right: Collective Thrust and Body rate ---
-            ax2.plot(time_steps, k1*omegas[:, 0]**2 + k1*omegas[:, 1]**2, label='Collective Thrust', color='purple', linewidth=1.5)
-            ax2.plot(time_steps, (k1*omegas[:, 1]**2 - k1*omegas[:, 0]**2) , label='Torque / arm_l' , color='pink', linewidth=1.5) # TODO: Add l
-            ax2.set_ylabel('Newtons (N)')
-            ax2.set_title('Rotor Speeds Over Time')
-            ax2.legend(loc='upper right')
-            ax2.grid(True, alpha=0.3)
-
-            # --- Lower plot Left: Actions (Control Signals) ---
-            ax3.plot(time_steps, omegas[:, 0], label='Omega 1', color='blue', linewidth=1.5)
-            ax3.plot(time_steps, omegas[:, 1], label='Omega 2', color='cyan', linestyle='--', linewidth=1.5)
-            ax3.set_ylabel('Speed (rad/s)')
-            ax3.set_title('Rotor Speeds Over Time')
-            ax3.legend(loc='upper right')
-            ax3.grid(True, alpha=0.3)
-
-            # --- Lower plot Right: Actions (Control Signals) ---
-            distances = np.sqrt((target[:, 0] - traj[:, 0])**2 + (target[:, 1] - traj[:, 1])**2).detach().cpu().numpy()
-            ax4.plot(time_steps, distances, label='Distance' , color='red', linewidth=1.5)
-            ax4.set_ylabel('Meters (m)')
-            mse = np.mean(distances**2)
-            ax4.axhline(y=np.sqrt(mse), color='red', linestyle='--', linewidth=1.5, label=f'√MSE = {np.sqrt(mse):.3f}')
-            ax4.set_title(f'Distance to Target Over Time\n MSE = {mse:.3f}')
-            ax4.legend(loc='upper right')
-            ax4.grid(True, alpha=0.3)
-            
-            # Automatic adjustment to prevent title overlap
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95]) 
-
-        # Show all windows simultaneously
-        plt.show()
     
     def _save_frame(self):
         """Save current pygame surface to video file."""
@@ -226,7 +142,8 @@ class MultiTrajectoryRenderer:
         dir_x = -np.sin(theta)
         dir_y =  np.cos(theta)
 
-        THRUST_SCALE = 1 * self.scale
+        THRUST_SCALE = 1.0 * self.scale
+        DRAG_SCALE = 2.5 * self.scale
         MAX_THRUST = 25.0
 
         def draw_rotor_thrust(pos_px, thrust, color):
@@ -246,7 +163,27 @@ class MultiTrajectoryRenderer:
                 head_width=5
             )
 
+        drag_force = self.drone.calculate_drag(vx, vy, theta)
+
         pos = self.to_screen(x, y)
+
+        # Draw drag vector
+        if drag_force is not None:
+            drag_mag = np.hypot(drag_force[0], drag_force[1])
+            if drag_mag > 1e-6:
+                drag_scale =  DRAG_SCALE  # / max(drag_mag, 1e-6)
+                drag_end = (
+                    int(pos[0] - drag_force[0] * drag_scale),
+                    int(pos[1] + drag_force[1] * drag_scale),
+                )
+                self.draw_arrow(
+                    start=pos,
+                    end=drag_end,
+                    color=(100, 200, 255),
+                    width=2,
+                    head_len=6,
+                    head_width=4
+                )
 
         arm = self.l * self.scale
         dx = arm * np.cos(theta)
@@ -308,3 +245,95 @@ class MultiTrajectoryRenderer:
             print(f"Video saved to: {self.video_path}")
 
         pygame.quit()
+
+
+   # ===================================================
+   #                     DASHBOARD
+   #                 (for post analysis)
+   # ===================================================
+
+    def plot_dashboard(self):
+        """Plot Omega1 and Omega2 (rotor speeds) over time for all agents."""
+        for agent_index, agent in enumerate(self.agents):
+            # 1. Data preparation
+            # Assuming 'action' contains sent actions and 'traj' contains states
+            action = agent["action"].squeeze()
+            traj = agent["traj"].squeeze()
+            target = agent["target"].squeeze()
+            
+            omegas = traj[:, 6:8]  # Omegas from trajectory
+            actions = action       # Actions (control commands)
+            time_steps = np.arange(len(omegas)) * self.dt
+
+            # 2. Figure setup (Dashboard)
+            # Create 2 rows and 2 column sharing X axis for easier reading
+            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2, figsize=(12, 8), sharex=True)
+            fig.suptitle(f'{agent.get("name") or f"Agent {agent_index}"}', fontsize=16)
+            
+            # Get and format environment parameters
+            env_params = self.drone.get_env_parameters()
+            params_str = ', '.join([f'{k} = {v.item():.2f}' if hasattr(v, 'item') else f'{k}: {v}' 
+                                     for k, v in env_params.items()])
+            
+            # Extract l and k1 as separate variables
+            l = env_params.get('l').item() 
+            k1 = env_params.get('k1').item()
+
+            fig.text(0.5, 0.93, f'{params_str}', ha='center', fontsize=13, 
+                     transform=fig.transFigure, verticalalignment='top')
+
+
+            # --- Upper plot Left: Policy Outputs ---
+            # Plot all action dimensions (if there are more than 2)
+            agent_name = agent.get("name", "").upper()
+            
+            if agent_name == "SRT":
+                action_labels = ["Thrust Motor 1", "Thrust Motor 2"]
+            elif agent_name == "CTBR":
+                action_labels = ["Collective Thrust", "Toruque"]
+            elif agent_name == "LV":
+                action_labels = ["vx", "vy", "kv", "kR", "kw"]
+            else:
+                action_labels = [f"Action Dim {i}" for i in range(actions.shape[1])]
+            
+            for i in range(actions.shape[1]):
+                label = action_labels[i] if i < len(action_labels) else f"Action Dim {i}"
+                ax1.plot(time_steps, actions[:, i], label=label, alpha=0.8) 
+            ax1.set_xlabel('Time Step')
+            ax1.set_ylabel('Control Value')
+            ax1.set_title('Control Actions Over Time')
+            ax1.legend(loc='upper right')
+            ax1.grid(True, alpha=0.3)
+
+
+            # --- Upper plot Right: Collective Thrust and Body rate ---
+            ax2.plot(time_steps, k1*omegas[:, 0]**2 + k1*omegas[:, 1]**2, label='Collective Thrust', color='purple', linewidth=1.5)
+            ax2.plot(time_steps, (k1*omegas[:, 1]**2 - k1*omegas[:, 0]**2) , label='Torque / arm_l' , color='pink', linewidth=1.5) # TODO: Add l
+            ax2.set_ylabel('Newtons (N)')
+            ax2.set_title('Rotor Speeds Over Time')
+            ax2.legend(loc='upper right')
+            ax2.grid(True, alpha=0.3)
+
+            # --- Lower plot Left: Actions (Control Signals) ---
+            ax3.plot(time_steps, omegas[:, 0], label='Omega 1', color='blue', linewidth=1.5)
+            ax3.plot(time_steps, omegas[:, 1], label='Omega 2', color='cyan', linestyle='--', linewidth=1.5)
+            ax3.set_ylabel('Speed (rad/s)')
+            ax3.set_title('Rotor Speeds Over Time')
+            ax3.legend(loc='upper right')
+            ax3.grid(True, alpha=0.3)
+
+            # --- Lower plot Right: Actions (Control Signals) ---
+            distances = np.sqrt((target[:, 0] - traj[:, 0])**2 + (target[:, 1] - traj[:, 1])**2).detach().cpu().numpy()
+            ax4.plot(time_steps, distances, label='Distance' , color='red', linewidth=1.5)
+            ax4.set_ylabel('Meters (m)')
+            mse = np.mean(distances**2)
+            ax4.axhline(y=np.sqrt(mse), color='red', linestyle='--', linewidth=1.5, label=f'√MSE = {np.sqrt(mse):.3f}')
+            ax4.set_title(f'Distance to Target Over Time\n MSE = {mse:.3f}')
+            ax4.legend(loc='upper right')
+            ax4.grid(True, alpha=0.3)
+            
+            # Automatic adjustment to prevent title overlap
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95]) 
+
+        # Show all windows simultaneously
+        plt.show()

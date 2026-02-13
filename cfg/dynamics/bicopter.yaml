@@ -24,10 +24,10 @@ J:
   max: 0.015
 C_D:
   x:
-    nominal: 0.01
+    nominal: 0.1
     randomize: True
-    min: 0.005
-    max: 0.015
+    min: 0.05
+    max: 0.15
   y:
     nominal: 0.1
     randomize: True
@@ -38,7 +38,7 @@ c_tf: # linear torque constant: torque = c_tf * thrust
   randomize: True
   min: 0.005
   max: 0.015
-km: # motor time constant: \dot{\Omega} = 1/km * (\Omega_cmd - \Omega) 
+km: # motor time constant: \dot{\Omega} = (1/km) * (\Omega_cmd - \Omega) 
   up:
     nominal: 0.01
     randomize: True
@@ -59,10 +59,10 @@ thrust_map: # thrust = k1 * \Omega^2 + k2 * \Omega + k3
   k3:
 
 
-Ti_min:
-Ti_max: 25.0     # per rotor
-rotor_speed_min:
-rotor_speed_max:
+Ti_min: 0.0
+Ti_max: 25.0     # per motor
+motor_speed_min:
+motor_speed_max:
 
 omega_max:
 

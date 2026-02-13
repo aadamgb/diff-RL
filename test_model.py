@@ -93,7 +93,7 @@ def test(cfg: DictConfig):
 
     control_modes = {
         "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
-        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr.pt"},
+        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr2.pt"},
         "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
     }
 
@@ -103,7 +103,6 @@ def test(cfg: DictConfig):
     with torch.inference_mode():
         state0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         drone.randomize_parameters(env_randomization(cfg))
-        print(drone.get_env_parameters())
 
         for cm, config in control_modes.items():
             policy = BicopterPolicy(
