@@ -1,29 +1,52 @@
-import hydra
-import numpy as np
+import torch
 from omegaconf import DictConfig
 
-def scale_randomization(cfg: DictConfig):
-    c = np.round(np.random.uniform(cfg.sf.min, cfg.sf.max), 3)
-    l = np.round(c * (cfg.arm_l.max - cfg.arm_l.min) + cfg.arm_l.min, 3)
-    m = np.round(((l**3 - cfg.arm_l.min**3) / (cfg.arm_l.max**3 - cfg.arm_l.min**3)) * (cfg.mass.max - cfg.mass.min) + cfg.mass.min, 3)
-    J = np.round(((l**5 - cfg.arm_l.min**5) / (cfg.arm_l.max**5 - cfg.arm_l.min**5)) * (cfg.J.max - cfg.J.min) + cfg.J.min, 3)
-    C_Dx = np.round(((l**2 - cfg.arm_l.min**2) / (cfg.arm_l.max**2 - cfg.arm_l.min**2)) * (cfg.C_D.x.max - cfg.C_D.x.min) + cfg.C_D.x.min, 3)
-    C_Dy = np.round(((l**2 - cfg.arm_l.min**2) / (cfg.arm_l.max**2 - cfg.arm_l.min**2)) * (cfg.C_D.y.max - cfg.C_D.y.min) + cfg.C_D.y.min, 3)
-    k1 = cfg.thrust_map.k1.min * (cfg.thrust_map.k1.max / cfg.thrust_map.k1.min)**c
+def env_randomization(cfg: DictConfig, num_envs=1, device="cpu"):
 
-    print(f"\nScale factor c = {c} | Noise factor = {cfg.nf}\n")
-    
-    return {"l": l, "m": m, "J": J, "C_Dx": C_Dx, "C_Dy": C_Dy, "k1": k1}
+    # sample scale factors per environment
+    c = torch.empty(num_envs, device=device).uniform_(
+        cfg.sf.min, cfg.sf.max
+    )
 
-def env_randomization(cfg: DictConfig):
-    params = scale_randomization(cfg)
-    noisy_params = {k: v * (1 + np.random.uniform(-cfg.nf, cfg.nf)) 
-                    for k, v in params.items()}
+    # correlated scaling
+    l = c * (cfg.arm_l.max - cfg.arm_l.min) + cfg.arm_l.min
+
+    m = ((l**3 - cfg.arm_l.min**3) /
+         (cfg.arm_l.max**3 - cfg.arm_l.min**3)) * \
+        (cfg.mass.max - cfg.mass.min) + cfg.mass.min
+
+    J = ((l**5 - cfg.arm_l.min**5) /
+         (cfg.arm_l.max**5 - cfg.arm_l.min**5)) * \
+        (cfg.J.max - cfg.J.min) + cfg.J.min
+
+    C_Dx = ((l**2 - cfg.arm_l.min**2) /
+            (cfg.arm_l.max**2 - cfg.arm_l.min**2)) * \
+           (cfg.C_D.x.max - cfg.C_D.x.min) + cfg.C_D.x.min
+
+    C_Dy = ((l**2 - cfg.arm_l.min**2) /
+            (cfg.arm_l.max**2 - cfg.arm_l.min**2)) * \
+           (cfg.C_D.y.max - cfg.C_D.y.min) + cfg.C_D.y.min
+
+    k1 = cfg.thrust_map.k1.min * (
+        (cfg.thrust_map.k1.max / cfg.thrust_map.k1.min) ** c
+    )
+
+   
+    def add_noise(x):
+        return x * (
+            1 + torch.empty(num_envs, device=device)
+                .uniform_(-cfg.nf, cfg.nf)
+        )
     
-    for key in params:
-        print(f"{key}: {params[key]} (scaled) -> {noisy_params[key]:.3f} (noisy)")
-    
-    return noisy_params
+
+    return {
+        "l": add_noise(l),
+        "m": add_noise(m),
+        "J": add_noise(J),
+        "C_Dx": add_noise(C_Dx),
+        "C_Dy": add_noise(C_Dy),
+        "k1": add_noise(k1),
+    }
 
 if __name__ == "__main__":
     env_randomization()

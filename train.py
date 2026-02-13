@@ -21,7 +21,7 @@ def train(cfg: DictConfig):
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = "cpu"
-    num_envs = 1 if device == "cpu" else  2048
+    num_envs = 1 if device == "cpu" else  1024
     print(f"num_envs: {num_envs}")
     epochs = 200
     steps  = 500
@@ -34,10 +34,10 @@ def train(cfg: DictConfig):
         "lv": 5    #  vx, vy, kv, kR, kw  
     }
 
-    #================
+    #================#
     # Control mode:
     cm = "lv" 
-    #================
+    #================#
 
     drone = BicopterDynamics(device=device, cfg=cfg)
     traj_gen = RandomTrajectoryGenerator(num_envs=num_envs, device=device)
@@ -52,14 +52,23 @@ def train(cfg: DictConfig):
     loss_history = []
 
     for epoch in range(epochs):
+        # Generate random target trajectory #
         traj_gen.reset()
-        # Randomize the environmental parameters
-        drone.randomize_parameters(env_randomization(cfg))
 
+        # Randomize the environmental parameters per num_envs #
+        env_params = env_randomization(cfg, num_envs, device)
+        drone.randomize_parameters(env_params)
+        
+        # Initialize the bicopter state #
         states = torch.zeros((num_envs, 8), device=device)
-        states[:, :2] = torch.rand((num_envs, 2), device=device) * 5.0  # Randomize initial positon
-        states[:, 6] = drone.motors_hover_speed()                       # Set initial rotor speeds to hover
-        states[:, 7] = drone.motors_hover_speed()                       # Set initial rotor speeds to hover
+        # randomize initial positon
+        states[:, :2] = torch.rand((num_envs, 2), device=device) * 5.0
+        # set initial rotors speed to hover  
+        states[:, 6] = drone.motor_hover_speed()                       
+        states[:, 7] = drone.motor_hover_speed()
+
+        # print(states[:, 7])
+        # break                       
 
         epoch_loss = 0.0
         num_chunks = 0

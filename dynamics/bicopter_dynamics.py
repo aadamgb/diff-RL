@@ -19,20 +19,23 @@ class BicopterDynamics:
         self.device = device
         self.cfg = cfg
 
-        self.m = cfg.mass.nominal
-        self.l = cfg.arm_l.nominal
-        self.I = cfg.J.nominal
-        self.g = cfg.g
+        self.l = torch.tensor(cfg.arm_l.nominal, device=device)
+        self.m = torch.tensor(cfg.mass.nominal, device=device)
+        self.J = torch.tensor(cfg.J.nominal, device=device)
 
-        self.C_Dx = cfg.C_D.x.nominal
-        self.C_Dy = cfg.C_D.y.nominal
-        self.rho = cfg.rho
+        self.g = torch.tensor(cfg.g, device=device)
 
-        self.k1 = cfg.thrust_map.k1.nominal
-        self.km_up = cfg.km.up.nominal
-        self.km_down = cfg.km.down.nominal
+        self.C_Dx = torch.tensor(cfg.C_D.x.nominal, device=device)
+        self.C_Dy = torch.tensor(cfg.C_D.y.nominal, device=device)
+        self.rho = torch.tensor(cfg.rho, device=device)
 
-        self.Ti_max = cfg.Ti_max  # per rotor
+        self.k1 = torch.tensor(cfg.thrust_map.k1.nominal, device=device)
+
+        self.km_up = torch.tensor(cfg.km.up.nominal, device=device)
+        self.km_down = torch.tensor(cfg.km.down.nominal, device=device)
+
+        self.Ti_max = torch.tensor(cfg.Ti_max, device=device)
+
     
     def step(self, state, action, control_mode="srt"):
         """
@@ -73,7 +76,7 @@ class BicopterDynamics:
         ay =  ( torch.cos(theta) * T - self.m * self.g - drag_y) / self.m
         
         # Rotational dynamics
-        alpha = tau / self.I
+        alpha = tau / self.J
 
         # Integrate (semi-implicit Euler)
         vx = vx + ax * self.dt
@@ -98,12 +101,13 @@ class BicopterDynamics:
         # Collective thrust and body rate (T, omega)
         elif mode == "ctbr":
             T_cmd = action[..., 0]
-            omega_cmd = action[..., 1]
+            # omega_cmd = action[..., 1]
+            tau_cmd = action[..., 1]
 
-            kd = 0.5
-            tau = kd * (omega_cmd - state[..., 5])
-            T1 = 0.5 * (T_cmd - tau / self.l)
-            T2 = 0.5 * (T_cmd + tau / self.l)
+            # kd = 0.5
+            # tau = kd * (omega_cmd - state[..., 5])
+            T1 = 0.5 * (T_cmd - tau_cmd / self.l)
+            T2 = 0.5 * (T_cmd + tau_cmd / self.l)
             return T1, T2
             
         # Linear velocity tracking via force-based geometric control
@@ -132,7 +136,7 @@ class BicopterDynamics:
 
             # SO(2) geometric attitude control
             eR = torch.sin(theta - theta_des)
-            tau = self.I * (-kR * eR - kw * omega)
+            tau = self.J * (-kR * eR - kw * omega)
 
             T1 = 0.5 * (T_cmd - tau / self.l)
             T2 = 0.5 * (T_cmd + tau / self.l)
@@ -143,34 +147,36 @@ class BicopterDynamics:
         
     def _bounded_gain(self, x, k_min, k_max):
         return k_min + (k_max - k_min) * torch.sigmoid(x)
-    
-    # def _calculate_drag(self, state):
-
-    #     v_body = state[..., 2:3]
-        
-        
-
-    #     # f_drag = -0.5 * self.rho * self.C_D * self.area * v_body.norm() * v_body
-
-    #     # return f_drag
-    #     pass
 
     def randomize_parameters(self, params: dict):
         '''
         Sets the randomized parameters 
         '''
-        self.m = params["m"]
-        self.l = params["l"]
-        self.I = params["J"]
-        self.C_Dx = params["C_Dx"]
-        self.C_Dy = params["C_Dy"]
-        self.k1 = params["k1"]
+        self.m = params["m"].to(self.device)
+        self.l = params["l"].to(self.device)
+        self.J = params["J"].to(self.device)
+        self.C_Dx = params["C_Dx"].to(self.device)
+        self.C_Dy = params["C_Dy"].to(self.device)
+        self.k1 = params["k1"].to(self.device)
 
-    def motors_hover_speed(self):
+    def get_env_parameters(self):
+        '''
+        Returns the current parameters as a dictionary
+        '''
+        return {
+            "m": self.m,
+            "l": self.l,
+            "J": self.J,
+            "C_Dx": self.C_Dx,
+            "C_Dy": self.C_Dy,
+            "k1": self.k1,
+        }
+
+    def motor_hover_speed(self):
         '''
         Returns the required motor angluar velocity to hover
         '''
-        return torch.sqrt(torch.tensor(self.m * self.g / (2 * self.k1)))
+        return torch.sqrt(self.m * self.g / (2 * self.k1))
         
 
 

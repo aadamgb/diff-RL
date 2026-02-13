@@ -2,6 +2,7 @@ import torch
 from utils.renderer import MultiTrajectoryRenderer
 from utils.nn import BicopterPolicy
 from utils.rand_traj_gen import RandomTrajectoryGenerator
+from utils.randomizer import env_randomization
 from dynamics.bicopter_dynamics import BicopterDynamics
 import os
 
@@ -36,7 +37,7 @@ def test(cfg: DictConfig):
             return pos.squeeze(0), vel.squeeze(0), acc.squeeze(0)  # (2,)
 
         for t in range(steps):
-            x, y, vx, vy, theta, omega = states
+            x, y, vx, vy, theta, omega, Omega1, Omega2 = states.squeeze(0)
 
             # Get reference trajectory
             pos_ref, vel_ref, acc_ref = get_target_safe(t * dt)
@@ -77,16 +78,17 @@ def test(cfg: DictConfig):
     # -----------------------------------------------------------------------------
     steps = 1500 * 3
     dt = 0.01
+    num_envs = 1
+    device = "cpu"
 
     drone = BicopterDynamics(cfg=cfg)
-    # renderer = MultiTrajectoryRenderer(video_path="outputs/videos/simulation.mp4")
     renderer = MultiTrajectoryRenderer(drone=drone, video_path=None)
-    traj_gen = RandomTrajectoryGenerator(num_envs=1, device="cpu")
+    traj_gen = RandomTrajectoryGenerator(num_envs=num_envs, device=device)
 
     ACT_DIMS = {
-        "srt": 2,
-        "ctbr": 2, # T, tau
-        "lv": 5    #  vx, vy, kv, kR, kw  
+        "srt": 2,       # T1, T2
+        "ctbr": 2,      # T, tau
+        "lv": 5         #  vx, vy, kv, kR, kw  
     }
 
     control_modes = {
@@ -99,7 +101,9 @@ def test(cfg: DictConfig):
     # Evaluation
     # -----------------------------------------------------------------------------
     with torch.inference_mode():
-        state0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        state0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        drone.randomize_parameters(env_randomization(cfg))
+        print(drone.get_env_parameters())
 
         for cm, config in control_modes.items():
             policy = BicopterPolicy(
@@ -137,7 +141,8 @@ def test(cfg: DictConfig):
 
             print(f"Loaded and rendered {cm.upper()} policy")
 
-    renderer.run()
+    # renderer.run()
+    renderer.plot_dashboard()
 
 if __name__ == "__main__":
     test()
