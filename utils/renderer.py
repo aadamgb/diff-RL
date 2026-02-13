@@ -4,11 +4,10 @@ from dynamics.bicopter_dynamics import BicopterDynamics
 import cv2
 import os
 
-drone = BicopterDynamics()
-
 class MultiTrajectoryRenderer:
-    def __init__(self, width=1280, height=900, scale=100, fps=60, l=0.2, video_path=None):
+    def __init__(self, drone, width=1280, height=900, scale=100, fps=60, l=0.2, video_path=None):
         pygame.init()
+        self.drone = drone
         self.width = width
         self.height = height
         self.scale = scale
@@ -124,7 +123,7 @@ class MultiTrajectoryRenderer:
         # Get T and tau from control mode
         state_idx = traj[idx]
         action_idx = action[idx]
-        T1, T2 = drone._get_control(state_idx, action_idx, cm)
+        T1, T2 = self.drone._get_control(state_idx, action_idx, cm)
 
         T = T1 + T2
         tau = self.l * (T2 - T1)

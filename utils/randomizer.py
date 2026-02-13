@@ -15,17 +15,17 @@ def scale_randomization(cfg: DictConfig):
     
     return {"l": l, "m": m, "J": J, "C_Dx": C_Dx, "C_Dy": C_Dy, "k1": k1}
 
-def noise_randomization(cfg: DictConfig):
+def env_randomization(cfg: DictConfig):
     params = scale_randomization(cfg)
     noisy_params = {k: v * (1 + np.random.uniform(-cfg.nf, cfg.nf)) 
                     for k, v in params.items()}
     
     for key in params:
-        print(f"{key}: {params[key]} (scaled) -> {noisy_params[key]} (noisy)")
+        print(f"{key}: {params[key]} (scaled) -> {noisy_params[key]:.3f} (noisy)")
     
     return noisy_params
 
 if __name__ == "__main__":
-    noise_randomization()
+    env_randomization()
 
 # TODO: motor_tau, thrust_map, min/max(T, motor_speed, omega), motor efectivness/alloc matrix

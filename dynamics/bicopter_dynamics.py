@@ -45,17 +45,28 @@ class BicopterDynamics:
         T1_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1_cmd) / self.Ti_max)
         T2_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2_cmd) / self.Ti_max)
 
-        T = T1_cmd + T2_cmd
-        tau = self.l * (T2_cmd - T1_cmd)
+        # Convert commanded thurust to rotor speed
+        Omega1_cmd = torch.sqrt(T1_cmd / self.k1)
+        Omega2_cmd = torch.sqrt(T2_cmd / self.k1)
 
-        allocation_matrix = np.array([[1.0, 1.0], [-self.l, self.l]])
+        # Adding the motor dynamics (delay)
+        Omega1 = Omega1 + ((Omega1_cmd - Omega1) / self.km_up ) * self.dt 
+        Omega2 = Omega2 + ((Omega2_cmd - Omega2) / self.km_up ) * self.dt 
 
-        # Drag  TODO: Maybe drag coeffs would be even worth to randomize at each time step**
+        # Revert the conversion
+        T1 = self.k1 * Omega1**2
+        T2 = self.k1 * Omega2**2
+        T = T1 + T2
+        tau = self.l * (T2 - T1)
+
+        # Calculating the translational drag (quadratic drag model)
+        # (note that rotational body drag an propelers drag is neglected)
         v_norm = torch.sqrt(vx**2 + vy**2 + 1e-6)
         area_x = self.l * 0.1    # 0.1 is just an arbitrary factor
         area_y = self.l
         drag_x = 0.5 * self.rho * self.C_Dx * area_x * v_norm * vx
         drag_y = 0.5 * self.rho * self.C_Dy * area_y * v_norm * vy
+        # Drag  TODO: Maybe drag coeffs would be even worth to randomize at each time step**
 
         # Translational dynamics
         ax =  (-torch.sin(theta) * T - drag_x) / self.m
@@ -64,7 +75,7 @@ class BicopterDynamics:
         # Rotational dynamics
         alpha = tau / self.I
 
-        # Integrate
+        # Integrate (semi-implicit Euler)
         vx = vx + ax * self.dt
         vy = vy + ay * self.dt
         omega = omega + alpha * self.dt
@@ -72,7 +83,7 @@ class BicopterDynamics:
         x = x + vx * self.dt
         y = y + vy * self.dt
         theta = theta + omega * self.dt
-        return torch.stack([x, y, vx, vy, theta, omega], dim=-1)
+        return torch.stack([x, y, vx, vy, theta, omega, Omega1, Omega2], dim=-1)
     
     def _get_control(self, state, action, mode):
         """
@@ -133,20 +144,20 @@ class BicopterDynamics:
     def _bounded_gain(self, x, k_min, k_max):
         return k_min + (k_max - k_min) * torch.sigmoid(x)
     
-    def _calculate_drag(self, state):
+    # def _calculate_drag(self, state):
 
-        v_body = state[..., 2:3]
+    #     v_body = state[..., 2:3]
         
         
 
-        # f_drag = -0.5 * self.rho * self.C_D * self.area * v_body.norm() * v_body
+    #     # f_drag = -0.5 * self.rho * self.C_D * self.area * v_body.norm() * v_body
 
-        # return f_drag
-        pass
+    #     # return f_drag
+    #     pass
 
     def randomize_parameters(self, params: dict):
         '''
-        Setting the randomized params 
+        Sets the randomized parameters 
         '''
         self.m = params["m"]
         self.l = params["l"]
@@ -154,6 +165,14 @@ class BicopterDynamics:
         self.C_Dx = params["C_Dx"]
         self.C_Dy = params["C_Dy"]
         self.k1 = params["k1"]
+
+    def motors_hover_speed(self):
+        '''
+        Returns the required motor angluar velocity to hover
+        '''
+        return torch.sqrt(torch.tensor(self.m * self.g / (2 * self.k1)))
+        
+
 
     
 

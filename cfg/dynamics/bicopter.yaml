@@ -45,6 +45,10 @@ km: # motor time constant: \dot{\Omega} = 1/km * (\Omega_cmd - \Omega)
     min: 0.005
     max: 0.015
   down:
+    nominal: 0.01
+    randomize: True
+    min: 0.005
+    max: 0.015
 thrust_map: # thrust = k1 * \Omega^2 + k2 * \Omega + k3
   k1:
     nominal: 0.000000045

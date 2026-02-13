@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from dynamics.bicopter_dynamics import BicopterDynamics
 
 from utils.nn import BicopterPolicy
-from utils.randomizer import scale_randomization
+from utils.randomizer import env_randomization
 from utils.rand_traj_gen import RandomTrajectoryGenerator
 
 
@@ -53,11 +53,14 @@ def train(cfg: DictConfig):
 
     for epoch in range(epochs):
         traj_gen.reset()
-        print(scale_randomization(cfg))
+        # Randomize the environmental parameters
+        drone.randomize_parameters(env_randomization(cfg))
 
         states = torch.zeros((num_envs, 8), device=device)
-        states[:, :2] = torch.rand((num_envs, 2), device=device) * 5.0
-        
+        states[:, :2] = torch.rand((num_envs, 2), device=device) * 5.0  # Randomize initial positon
+        states[:, 6] = drone.motors_hover_speed()                       # Set initial rotor speeds to hover
+        states[:, 7] = drone.motors_hover_speed()                       # Set initial rotor speeds to hover
+
         epoch_loss = 0.0
         num_chunks = 0
         
@@ -70,7 +73,7 @@ def train(cfg: DictConfig):
             chunk_traj, chunk_target_pos, chunk_target_vel = [], [], []
             
             for t in range(chunk_start, chunk_end):
-                x, y, vx, vy, theta, omega = states.unbind(dim=1)
+                x, y, vx, vy, theta, omega, Omega1, Omega2 = states.unbind(dim=1)
                 pos_ref, vel_ref, acc_ref = traj_gen.get_target(t * dt)
 
                 # Compute errors
