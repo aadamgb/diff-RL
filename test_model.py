@@ -92,9 +92,10 @@ def test(cfg: DictConfig):
     }
 
     control_modes = {
-        # "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
-        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr3.pt"},
+        "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
+        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr.pt"},
         # "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
+        "lv": {"color": (255, 165, 0), "file_name": "lv2.pt"},
     }
 
     # -----------------------------------------------------------------------------
@@ -143,7 +144,7 @@ def test(cfg: DictConfig):
             print(f"Loaded and rendered {cm.upper()} policy")
 
     renderer.run()
-    renderer.plot_dashboard()
+    # renderer.plot_dashboard()
 
 if __name__ == "__main__":
     test()

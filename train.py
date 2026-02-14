@@ -1,6 +1,7 @@
 import os
 import torch
 import matplotlib.pyplot as plt
+import time
 
 from dynamics.bicopter_dynamics import BicopterDynamics
 
@@ -36,7 +37,7 @@ def train(cfg: DictConfig):
 
     #================#
     # Control mode:
-    cm = "ctbr" 
+    cm = "lv" 
     #================#
 
     drone = BicopterDynamics(device=device, cfg=cfg)
@@ -122,6 +123,16 @@ def train(cfg: DictConfig):
             
             loss = 1.0 * pos_error + 1.0 * vel_error + 0.25 * rate_penalty
             epoch_loss += loss.item()
+
+            # print(loss)
+            # loss = torch.clamp(loss, -1e6, 1e6) # TODO: nasty temporal fix 
+            # Check for NaN loss
+            if torch.isnan(loss):
+                print("\n" + "="*50)
+                print("ERROR: Loss became NaN!")
+                print("Training stopped at iteration:", epoch)
+                print("="*50)
+                break
             
             # Backprop and step for this chunk
             loss.backward()
@@ -135,7 +146,7 @@ def train(cfg: DictConfig):
         loss_history.append(avg_loss / num_envs)
 
         if epoch % 100 == 0 or epoch == (epochs-1):
-            print(f"Epoch {epoch}: Loss = {avg_loss:.3f}")
+            print(f"Epoch {epoch} | Loss = {avg_loss:.3f}")
 
 
     # Plot the loss
@@ -155,4 +166,11 @@ def train(cfg: DictConfig):
 
 
 if __name__ == "__main__":
+    start_time = time.time()
     train()
+    end_time = time.time()
+
+    training_duration = end_time - start_time
+    print(f"\nTraining completed!")
+    print(f"Total training time: {int(training_duration // 3600)}h {int((training_duration % 3600) // 60)}m {training_duration % 60:.2f}s")
+
