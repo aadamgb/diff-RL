@@ -49,30 +49,32 @@ class BicopterDynamics:
         x, y, vx, vy, theta, omega, Omega1, Omega2 = torch.unbind(state, dim=-1)
 
         T1_cmd, T2_cmd = self._get_control(state, action, control_mode)
+
+        # Softplus and saturate commanded thrust
         T1_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1_cmd) / self.Ti_max)
         T2_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2_cmd) / self.Ti_max)
-
+        if torch.isnan(T1_cmd).any():
+            print("NaN in Omega1_cmd")
         # Convert commanded thurust to rotor speed
+        print(self.k1)
         Omega1_cmd = torch.sqrt(T1_cmd / self.k1)
         Omega2_cmd = torch.sqrt(T2_cmd / self.k1)
+        # print(Omega1_cmd)
+        # eps = 1e-4
+        # Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=eps))
+        # Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=eps))
+
+        if torch.isnan(Omega1_cmd).any():
+            print("NaN in Omega1_cmd")
 
         km1 = torch.where(Omega1_cmd > Omega1, self.km_up, self.km_down)
         km2 = torch.where(Omega2_cmd > Omega2, self.km_up, self.km_down)
-
-        
-        # Clamp motor speeds while preserving differentiability 
-        # I don't think this is needed, the clamp is already done at thrust command level
-        # Omega1_cmd = self._differentiable_clamp(Omega1_cmd, self.Omega_min, self.Omega_max)
-        # Omega2_cmd = self._differentiable_clamp(Omega2_cmd, self.Omega_min, self.Omega_max)
         
         # Adding the motor dynamics (delay)
         Omega1_dot = (Omega1_cmd - Omega1) / km1
         Omega2_dot = (Omega2_cmd - Omega2) / km2
-        # Omega1_dot = (Omega1_cmd - Omega1) / self.km_up
-        # Omega2_dot = (Omega2_cmd - Omega2) / self.km_up
-        
+
         # Saturate motor accelerations while preserving differentiability
-        # On the other hand this is more realistic!
         Omega1_dot = self._differentiable_clamp(Omega1_dot, self.Omega_dot_min, self.Omega_dot_max)
         Omega2_dot = self._differentiable_clamp(Omega2_dot, self.Omega_dot_min, self.Omega_dot_max)
         
@@ -84,9 +86,8 @@ class BicopterDynamics:
         T1 = self.k1 * Omega1**2
         T2 = self.k1 * Omega2**2
 
-        # T1 = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1) / self.Ti_max)
-        # T2 = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2) / self.Ti_max)
-
+        # T1 = T1_cmd
+        # T2 = T2_cmd
         T = T1 + T2
         tau = self.l * (T2 - T1)
 
@@ -125,7 +126,7 @@ class BicopterDynamics:
         
         # Calculate drag in body frame (quadratic drag)
         v_norm = torch.sqrt(vx_body**2 + vy_body**2 + 1e-6)
-        area_x = self.l * 1.0    # 0.1 arbitrary area sacling down factor for x
+        area_x = self.l * 0.1   # 0.1 arbitrary area sacle down factor
         area_y = self.l
         drag_x_body = 0.5 * self.rho * self.C_Dx * area_x * v_norm * vx_body
         drag_y_body = 0.5 * self.rho * self.C_Dy * area_y * v_norm * vy_body
@@ -162,9 +163,9 @@ class BicopterDynamics:
             vx, vy = state[..., 2], state[..., 3]
             theta, omega = state[..., 4], state[..., 5]
 
-            kv = self._differentiable_clamp(action[..., 2], 0.0, 10.0)
-            kR = self._differentiable_clamp(action[..., 3], 0.0, 20.0)
-            kw = self._differentiable_clamp(action[..., 4], 0.0, 5.0)
+            kv = self._bounded_gain(action[..., 2], 0.0, 10.0)
+            kR = self._bounded_gain(action[..., 3], 0.0, 20.0)
+            kw = self._bounded_gain(action[..., 4], 0.0, 5.0)
 
             ax_des = kv * (action[..., 0] - vx)
             ay_des = kv * (action[..., 1] - vy)
@@ -185,6 +186,9 @@ class BicopterDynamics:
             eR = torch.sin(theta - theta_des)
             tau = self.J * (-kR * eR - kw * omega)
 
+            if torch.isnan(tau).any():
+                print("NaN in tau")
+
             T1 = 0.5 * (T_cmd - tau / self.l)
             T2 = 0.5 * (T_cmd + tau / self.l)
             return T1, T2
@@ -192,8 +196,8 @@ class BicopterDynamics:
         else:
             raise ValueError(f"Unknown control_mode: {mode}")
         
-    # def _bounded_gain(self, x, k_min, k_max):
-    #     return k_min + (k_max - k_min) * torch.sigmoid(x)
+    def _bounded_gain(self, x, k_min, k_max):
+        return k_min + (k_max - k_min) * torch.sigmoid(x)
     
     # TODO: Not sure wether this is the best way of clamping
     def _differentiable_clamp(self, x, xmin, xmax):
