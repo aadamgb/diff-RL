@@ -42,7 +42,7 @@ $$
 
 
 
-$\mathcal{L}_{pos} = \frac{1}{T} \sum_{t=1}^{T} || \mathbf{p}_{t}^{(i)} - \mathbf{p}_{ref_t}^{(i)}|| ^2 $
+$$\mathcal{L}_{pos} = \frac{1}{T} \sum_{t=1}^{T} || \mathbf{p}_{t}^{(i)} - \mathbf{p}_{ref_t}^{(i)}|| ^2 $$
 
 $ \quad \mathcal{L}_{vel} = \frac{1}{T}  \sum_{t=1}^{T} \left\|
 \mathbf{v}_{t}^{(i)} -
