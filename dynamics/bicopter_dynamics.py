@@ -41,6 +41,8 @@ class BicopterDynamics:
 
         self.Ti_max = torch.tensor(cfg.Ti_max, device=device)
 
+        self.eps = 1e-4
+
     
     def step(self, state, action, control_mode="srt"):
         """
@@ -53,19 +55,12 @@ class BicopterDynamics:
         # Softplus and saturate commanded thrust
         T1_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1_cmd) / self.Ti_max)
         T2_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2_cmd) / self.Ti_max)
-        if torch.isnan(T1_cmd).any():
-            print("NaN in Omega1_cmd")
-        # Convert commanded thurust to rotor speed
-        print(self.k1)
+
         Omega1_cmd = torch.sqrt(T1_cmd / self.k1)
         Omega2_cmd = torch.sqrt(T2_cmd / self.k1)
-        # print(Omega1_cmd)
-        # eps = 1e-4
-        # Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=eps))
-        # Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=eps))
-
-        if torch.isnan(Omega1_cmd).any():
-            print("NaN in Omega1_cmd")
+        
+        Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=self.eps))
+        Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=self.eps))
 
         km1 = torch.where(Omega1_cmd > Omega1, self.km_up, self.km_down)
         km2 = torch.where(Omega2_cmd > Omega2, self.km_up, self.km_down)
@@ -186,9 +181,6 @@ class BicopterDynamics:
             eR = torch.sin(theta - theta_des)
             tau = self.J * (-kR * eR - kw * omega)
 
-            if torch.isnan(tau).any():
-                print("NaN in tau")
-
             T1 = 0.5 * (T_cmd - tau / self.l)
             T2 = 0.5 * (T_cmd + tau / self.l)
             return T1, T2
@@ -207,12 +199,18 @@ class BicopterDynamics:
         '''
         Sets the randomized parameters 
         '''
-        self.m = params["m"].to(self.device)
-        self.l = params["l"].to(self.device)
-        self.J = params["J"].to(self.device)
-        self.C_Dx = params["C_Dx"].to(self.device)
-        self.C_Dy = params["C_Dy"].to(self.device)
-        self.k1 = params["k1"].to(self.device)
+        if "m" in params:
+            self.m = params["m"].to(self.device)
+        if "l" in params:
+            self.l = params["l"].to(self.device)
+        if "J" in params:
+            self.J = params["J"].to(self.device)
+        if "C_Dx" in params:
+            self.C_Dx = params["C_Dx"].to(self.device)
+        if "C_Dy" in params:
+            self.C_Dy = params["C_Dy"].to(self.device)
+        if "k1" in params:
+            self.k1 = params["k1"].to(self.device)
 
     def get_env_parameters(self):
         '''

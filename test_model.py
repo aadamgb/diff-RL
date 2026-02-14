@@ -95,7 +95,7 @@ def test(cfg: DictConfig):
         "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
         "ctbr": {"color": (0, 0, 255), "file_name": "ctbr.pt"},
         # "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
-        "lv": {"color": (255, 165, 0), "file_name": "lv2.pt"},
+        "lv": {"color": (255, 165, 0), "file_name": "lv4.pt"},
     }
 
     # -----------------------------------------------------------------------------

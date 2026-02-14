@@ -124,8 +124,6 @@ def train(cfg: DictConfig):
             loss = 1.0 * pos_error + 1.0 * vel_error + 0.25 * rate_penalty
             epoch_loss += loss.item()
 
-            # print(loss)
-            # loss = torch.clamp(loss, -1e6, 1e6) # TODO: nasty temporal fix 
             # Check for NaN loss
             if torch.isnan(loss):
                 print("\n" + "="*50)
@@ -161,7 +159,7 @@ def train(cfg: DictConfig):
     # Export the model
     output_dir = os.path.join(os.path.dirname(__file__), "outputs")
     os.makedirs(output_dir, exist_ok=True)
-    torch.save(policy.state_dict(), os.path.join(output_dir, f"{cm}3.pt"))
+    torch.save(policy.state_dict(), os.path.join(output_dir, f"{cm}4.pt"))
     print("Policy saved!")
 
 
