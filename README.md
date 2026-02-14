@@ -37,7 +37,7 @@ $$\mathcal{L} = \mathcal{L}_{pos}
 +
 \mathcal{L}_{vel}
 +
-0.25 \, \mathcal{L}_{\omega}
+0.25  \mathcal{L}_{\omega}
 $$
 
 
@@ -54,11 +54,20 @@ $$ \small \mathcal{L}_{pos} =\frac{1}{T} \sum_{t=1}^{T}
 \right\|^2 \quad \mathcal{L}_{\omega} =\frac{1}{T} \sum_{t=1}^{T}
  \omega_{t}^{(i)2}$$
 
-where T denotes the number of time steps in which the loss is acumulated. To minimize the loss a truncated backpropagation through time T-BPTT is applied with ADAM optimizer and learning rate $1e^{-3}$
+where T denotes the number of time steps in which the loss is acumulated. To minimize the loss a truncated backpropagation through time T-BPTT is applied with ADAM optimizer at a learning rate of $1\times 10^{-3}$.
 
 ### 🧠Neural Network
 The neural network (policy) is constructed in [`utils/nn.py`](utils/nn.py) as a simple feedforward multi-layer perecptron (mlp). The policy takes 9 observational inputs which correspond to:
-- Position error:  
+
+| Position error| Velocity error | Acceleration reference | Orientiation and body rate|
+|:-:|:-:|:-:|:-:|
+| $e_{px} = x_{ref} - x$ | $e_{vx} = v_{x,ref} - v_x$| $a_{x,ref}$ | $\sin{\theta}, \ \cos{\theta}$
+| $e_{py} = y_{ref} - y$| $e_{vy} = v_{y,ref} - v_y$ | $a_{y,ref}$ | $\omega$  |
+
+
+
+
+<!-- - Position error:  
     - $e_{px} = x_{ref} - x$
     - $e_{py} = y_{ref} - y$
 
@@ -69,7 +78,7 @@ The neural network (policy) is constructed in [`utils/nn.py`](utils/nn.py) as a 
 - Orientiation and body rate:
     - $\sin{\theta}$
     - $\cos{\theta}$
-    - $\omega$
+    - $\omega$ -->
 
 Hence the observation input is :
 $$\mathbf{o} =
@@ -88,30 +97,35 @@ $$
 
 And it can ouput three different control modes:
 
-Single rotor thrust (SRT)
-Colective thrust and body rate (CTBR)
-Linear velocities + geo gains (LV)
+- Single rotor thrust (SRT): 
+    - $T1, \ T2$
+- Colective thrust and body rate (CTBR):
+    - $T, \ \omega$ 
+- Linear velocities + geometric controller gains (LV):
+    - $v_x,\ v_y,\ kv,\ kR,\ kw $
 
 
 ### 🚁Bicopter Dynamics 
-The physical bicopter system is modeled in [`dynamics/bicopter_dynamics.py`](dynamics/bicopter_dynamics.py)
+The physical bicopter system is modeled in [`dynamics/bicopter_dynamics.py`](dynamics/bicopter_dynamics.py) as a 6-state rigid body with two independent thrusters:
 
-$$\mathbf{x} =
-\begin{bmatrix}
-x & y & v_x & v_y & \theta & \omega
-\end{bmatrix}^T
-$$
+$$\dot{x} = v_x$$
+
+$$\dot{y} = v_y$$
+
+$$\dot{v}_x = -\frac{T_1 + T_2}{m}\sin\theta$$
+
+$$\dot{v}_y = \frac{T_1 + T_2}{m}\cos\theta - g$$
+
+$$\dot{\theta} = \omega$$
+
+$$\dot{\omega} = \frac{l}{I}(T_2 - T_1)$$
+
+where $m$ is the vehicle mass, $l$ is the rotor arm length, $I$ is the moment of inertia, $g$ is gravity, and $T_1, T_2$ are the individual rotor thrusts. The actuators are considered ideal with no saturation, and aerodynamic drag is neglected.
+
+
 
 ### 🏋️Differentiable Training
 [`dynamics/bicopter_dynamics.py`](dynamics/bicopter_dynamics.py)
-
-
-
-This project implements end-to-end learning of bicopter control policies using:
-- **Differentiable dynamics**: A 2D bicopter physics simulator ([`dynamics/bicopter_dynamics.py`](dynamics/bicopter_dynamics.py))
-- **Random trajectory generation**: Harmonic-based target trajectories ([`utils/rand_traj_gen.py`](utils/rand_traj_gen.py))
-- **Neural network policies**: Simple feedforward policy networks ([`utils/nn.py`](utils/nn.py))
-- **Interactive visualization**: Real-time trajectory rendering with Pygame ([`utils/renderer.py`](utils/renderer.py))
 
 
 
