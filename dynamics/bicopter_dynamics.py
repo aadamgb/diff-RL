@@ -74,8 +74,7 @@ class BicopterDynamics:
             T_cmd = action[..., 0]
             omega_cmd = action[..., 1]
 
-            kd = 0.5
-            tau = kd * (omega_cmd - state[..., 5])
+            tau = self.I * (omega_cmd - state[..., 5]) / self.dt
             T1 = 0.5 * (T_cmd - tau / self.l)
             T2 = 0.5 * (T_cmd + tau / self.l)
             return T1, T2
