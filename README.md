@@ -109,14 +109,14 @@ The training logic is implemented in [`train.py`](train.py). The framework suppo
 ```bash
 python train.py
 ```
-Trains a policy for the control mode specified by the parameter [`cm`](https://github.com/aadamgb/diff-RL/blob/2d501c9cc4309554f6ee41fb654d6027d55d48af/train.py#L26). The model will be saved in `outputs/{cm}.pt`.
+Trains a policy for the control mode specified by the parameter [`cm`](https://github.com/aadamgb/diff-RL/blob/2d501c9cc4309554f6ee41fb654d6027d55d48af/train.py#L26). The policy will be saved in `outputs/{cm}.pt`.
 
 ### Evaluation & Visualization
-To evaluate the policy, add it to this [dict](https://github.com/aadamgb/diff-RL/blob/2d501c9cc4309554f6ee41fb654d6027d55d48af/test_model.py#L87), then run:
+To evaluate the policy, add it to  [dict](https://github.com/aadamgb/diff-RL/blob/2d501c9cc4309554f6ee41fb654d6027d55d48af/test_model.py#L87) then run:
 ```bash
 python test_model.py
 ```
-It will load the policies and render them in Pygame. Multiple policies can be loaded simultaneously. 
+Multiple policies can be loaded simultaneously. 
 
 ## Requirements
 
