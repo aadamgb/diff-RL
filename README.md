@@ -42,7 +42,7 @@ $$
 
 
 
-$ \small\mathcal{L}_{pos} =\frac{1}{T} \sum_{t=1}^{T}
+$ \small \mathcal{L}_{pos} =\frac{1}{T} \sum_{t=1}^{T}
 \left\|
 \mathbf{p}_{t}^{(i)} -
 \mathbf{p}_{ref,t}^{(i)}
