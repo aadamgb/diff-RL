@@ -1,13 +1,111 @@
 # Differentiable Learning for 2D Bicopter Control
 
-A PyTorch-based differentiable framework for training neural network policies to control a 2D bicopter (dual-rotor drone) model. The project supports multiple control modes and includes trajectory tracking  with visualization.
+A simple PyTorch-based differentiable framework for training neural network policies to control a 2D bicopter. The project supports three control modes and real-time visualization in Pygame.
 
-## Demo
 
-![Bicopter Control Visualization](/media/sim.mp4)
 
+<div align="center">
+
+![Bicopter Control Visualization](/media/sim.gif)
+
+</div>
+
+
+
+## Project Structure
+
+```
+├── cfg/
+│   └── dynamics/bicopter.yaml        # Physics params & randomization config
+├── dynamics/
+│   └── bicopter_dynamics.py          # 2D bicopter physics model
+├── utils/
+│   ├── nn.py                         # Neural network policy
+│   ├── rand_traj_gen.py              # Harmonic trajectory generator
+│   ├── renderer.py                   # Pygame visualization
+│   └── randomizer.py                 # Domain randomization 
+
+├── train.py                          # Training script
+├── test_model.py                     # Policy evaluation & visualization
+└── outputs/                          # Saved models
+```
 
 ## Overview
+The aim of the bicopetrs is to match the state $\mathbf{x}_{ref} = $[p, v, acc ] of a moving target whose trajectory is sampled from the sum of random sinusoidal harmonics. In this way, the loss function is calculated as
+
+$$\mathcal{L} = \mathcal{L}_{pos}
++
+\mathcal{L}_{vel}
++
+0.25 \, \mathcal{L}_{\omega}
+$$
+
+
+
+$ \small\mathcal{L}_{pos} =\frac{1}{T} \sum_{t=1}^{T}
+\left\|
+\mathbf{p}_{t}^{(i)} -
+\mathbf{p}_{ref,t}^{(i)}
+\right\|^2
+ \quad \mathcal{L}_{vel} = \frac{1}{T}
+\sum_{t=1}^{T} \left\|
+\mathbf{v}_{t}^{(i)} -
+\mathbf{v}_{ref,t}^{(i)}
+\right\|^2 \quad \mathcal{L}_{\omega} =\frac{1}{T} \sum_{t=1}^{T}
+ \omega_{t}^{(i)2}$
+
+where T denotes the number of time steps in which the loss is acumulated. To minimize the loss a truncated backpropagation through time T-BPTT is applied with ADAM optimizer and learning rate $1e^{-3}$
+
+### 🧠Neural Network
+The neural network (policy) is constructed in [`utils/nn.py`](utils/nn.py) as a simple feedforward multi-layer perecptron (mlp). The policy takes 9 observational inputs which correspond to:
+- Position error:  
+    - $e_{px} = x_{ref} - x$
+    - $e_{py} = y_{ref} - y$
+
+- Velocity error:  
+    - $e_{vx} = v_{x,ref} - v_x$
+    - $e_{vy} = v_{y,ref} - v_y$
+
+- Orientiation and body rate:
+    - $\sin{\theta}$
+    - $\cos{\theta}$
+    - $\omega$
+
+Hence the observation input is :
+$$\mathbf{o} =
+\begin{bmatrix}
+e_{px} &
+e_{py} &
+e_{vx} &
+e_{vy} &
+a_{x,ref} &
+a_{y,ref} &
+\sin(\theta) &
+\cos(\theta) &
+\omega
+\end{bmatrix}^T \ \in \R^9
+$$
+
+And it can ouput three different control modes:
+
+Single rotor thrust (SRT)
+Colective thrust and body rate (CTBR)
+Linear velocities + geo gains (LV)
+
+
+### 🚁Bicopter Dynamics 
+The physical bicopter system is modeled in [`dynamics/bicopter_dynamics.py`](dynamics/bicopter_dynamics.py)
+
+$$\mathbf{x} =
+\begin{bmatrix}
+x & y & v_x & v_y & \theta & \omega
+\end{bmatrix}^T
+$$
+
+### 🏋️Differentiable Training
+[`dynamics/bicopter_dynamics.py`](dynamics/bicopter_dynamics.py)
+
+
 
 This project implements end-to-end learning of bicopter control policies using:
 - **Differentiable dynamics**: A 2D bicopter physics simulator ([`dynamics/bicopter_dynamics.py`](dynamics/bicopter_dynamics.py))
@@ -15,40 +113,7 @@ This project implements end-to-end learning of bicopter control policies using:
 - **Neural network policies**: Simple feedforward policy networks ([`utils/nn.py`](utils/nn.py))
 - **Interactive visualization**: Real-time trajectory rendering with Pygame ([`utils/renderer.py`](utils/renderer.py))
 
-## Features
 
-### Control Modes
-The framework supports three different control abstractions:
-- **SRT** (Single Rotor Thrust): Direct control of individual rotor thrusts (T₁, T₂)
-- **CTBR** (Collective Thrust & Body Rate): Control total thrust and angular rate
-- **LV** (Linear Velocity): Velocity tracking with geometric attitude control
-
-### Training
-- Multi-environment parallel training (GPU-accelerated)
-- Chunk-based loss computation for efficient memory usage
-- Configurable randomization via Hydra ([`cfg/dynamics/bicopter.yaml`](cfg/dynamics/bicopter.yaml))
-
-### Evaluation
-- Single rollout policy testing
-- Multi-policy comparison visualization
-- Real-time drone dynamics and thrust visualization
-
-## Project Structure
-
-```
-├── dynamics/
-│   └── bicopter_dynamics.py          # 2D bicopter physics engine
-├── utils/
-│   ├── nn.py                         # Neural network policy
-│   ├── rand_traj_gen.py              # Harmonic trajectory generator
-│   ├── renderer.py                   # Pygame visualization
-│   └── randomizer.py                 # Domain randomization utilities
-├── cfg/
-│   └── dynamics/bicopter.yaml        # Physics parameters & randomization config
-├── train.py                          # Training script
-├── test_model.py                     # Policy evaluation & visualization
-└── outputs/                          # Saved model checkpoints
-```
 
 ## Usage
 
