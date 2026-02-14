@@ -42,10 +42,9 @@ $$
 
 
 
-$ \mathcal{L}_{pos} =\frac{1}{T} \sum_{t=1}^{T} ||\mathbf{p}_{t}^{(i)} - \mathbf{p}_{ref,t}^{(i)}|| ^2
- \quad \mathcal{L}_{vel} = \frac{1}{T} $
+$\mathcal{L}_{pos} =\frac{1}{T} \sum_{t=1}^{T} ||\mathbf{p}_{t}^{(i)} - \mathbf{p}_{ref,t}^{(i)}|| ^2 $
 
-$\sum_{t=1}^{T} \left\|
+$ \quad \mathcal{L}_{vel} = \frac{1}{T}  \sum_{t=1}^{T} \left\|
 \mathbf{v}_{t}^{(i)} -
 \mathbf{v}_{ref,t}^{(i)}
 \right\|^2 \quad \mathcal{L}_{\omega} =\frac{1}{T} \sum_{t=1}^{T}
