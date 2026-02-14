@@ -42,13 +42,17 @@ $$
 
 
 
-$$\mathcal{L}_{pos} = \frac{1}{T} \sum_{t=1}^{T} || \mathbf{p}_{t}^{(i)} - \mathbf{p}_{ref_t}^{(i)}|| ^2 $$
-
-$ \quad \mathcal{L}_{vel} = \frac{1}{T}  \sum_{t=1}^{T} \left\|
+$$ \small \mathcal{L}_{pos} =\frac{1}{T} \sum_{t=1}^{T}
+\left\|
+\mathbf{p}_{t}^{(i)} -
+\mathbf{p}_{ref,t}^{(i)}
+\right\|^2
+ \quad \mathcal{L}_{vel} = \frac{1}{T}
+\sum_{t=1}^{T} \left\|
 \mathbf{v}_{t}^{(i)} -
 \mathbf{v}_{ref,t}^{(i)}
 \right\|^2 \quad \mathcal{L}_{\omega} =\frac{1}{T} \sum_{t=1}^{T}
- \omega_{t}^{(i)2}$
+ \omega_{t}^{(i)2}$$
 
 where T denotes the number of time steps in which the loss is acumulated. To minimize the loss a truncated backpropagation through time T-BPTT is applied with ADAM optimizer and learning rate $1e^{-3}$
 
