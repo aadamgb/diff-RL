@@ -92,9 +92,9 @@ def test(cfg: DictConfig):
     }
 
     control_modes = {
-        "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
-        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr2.pt"},
-        "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
+        # "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
+        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr3.pt"},
+        # "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
     }
 
     # -----------------------------------------------------------------------------
@@ -102,6 +102,8 @@ def test(cfg: DictConfig):
     # -----------------------------------------------------------------------------
     with torch.inference_mode():
         state0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        state0[6] = drone.motor_hover_speed()                       
+        state0[7] = drone.motor_hover_speed()
         drone.randomize_parameters(env_randomization(cfg))
 
         for cm, config in control_modes.items():
@@ -140,7 +142,7 @@ def test(cfg: DictConfig):
 
             print(f"Loaded and rendered {cm.upper()} policy")
 
-    # renderer.run()
+    renderer.run()
     renderer.plot_dashboard()
 
 if __name__ == "__main__":

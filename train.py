@@ -150,7 +150,7 @@ def train(cfg: DictConfig):
     # Export the model
     output_dir = os.path.join(os.path.dirname(__file__), "outputs")
     os.makedirs(output_dir, exist_ok=True)
-    torch.save(policy.state_dict(), os.path.join(output_dir, f"{cm}2.pt"))
+    torch.save(policy.state_dict(), os.path.join(output_dir, f"{cm}3.pt"))
     print("Policy saved!")
 
 

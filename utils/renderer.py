@@ -301,7 +301,7 @@ class MultiTrajectoryRenderer:
                 ax1.plot(time_steps, actions[:, i], label=label, alpha=0.8) 
             ax1.set_xlabel('Time Step')
             ax1.set_ylabel('Control Value')
-            ax1.set_title('Control Actions Over Time')
+            ax1.set_title('Control Actions vs Time')
             ax1.legend(loc='upper right')
             ax1.grid(True, alpha=0.3)
 
@@ -310,7 +310,7 @@ class MultiTrajectoryRenderer:
             ax2.plot(time_steps, k1*omegas[:, 0]**2 + k1*omegas[:, 1]**2, label='Collective Thrust', color='purple', linewidth=1.5)
             ax2.plot(time_steps, (k1*omegas[:, 1]**2 - k1*omegas[:, 0]**2) , label='Torque / arm_l' , color='pink', linewidth=1.5) # TODO: Add l
             ax2.set_ylabel('Newtons (N)')
-            ax2.set_title('Rotor Speeds Over Time')
+            ax2.set_title('Thrust & Torque vs Time')
             ax2.legend(loc='upper right')
             ax2.grid(True, alpha=0.3)
 
@@ -318,7 +318,7 @@ class MultiTrajectoryRenderer:
             ax3.plot(time_steps, omegas[:, 0], label='Omega 1', color='blue', linewidth=1.5)
             ax3.plot(time_steps, omegas[:, 1], label='Omega 2', color='cyan', linestyle='--', linewidth=1.5)
             ax3.set_ylabel('Speed (rad/s)')
-            ax3.set_title('Rotor Speeds Over Time')
+            ax3.set_title('Rotor Speeds vs Time')
             ax3.legend(loc='upper right')
             ax3.grid(True, alpha=0.3)
 
@@ -328,7 +328,7 @@ class MultiTrajectoryRenderer:
             ax4.set_ylabel('Meters (m)')
             mse = np.mean(distances**2)
             ax4.axhline(y=np.sqrt(mse), color='red', linestyle='--', linewidth=1.5, label=f'√MSE = {np.sqrt(mse):.3f}')
-            ax4.set_title(f'Distance to Target Over Time\n MSE = {mse:.3f}')
+            ax4.set_title(f'Distance to Target vs Time\n MSE = {mse:.3f}')
             ax4.legend(loc='upper right')
             ax4.grid(True, alpha=0.3)
             

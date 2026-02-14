@@ -40,32 +40,37 @@ c_tf: # linear torque constant: torque = c_tf * thrust
   max: 0.015
 km: # motor time constant: \dot{\Omega} = (1/km) * (\Omega_cmd - \Omega) 
   up:
-    nominal: 0.01
+    nominal: 0.033
     randomize: True
-    min: 0.005
-    max: 0.015
+    min: 0.01
+    max: 0.05
   down:
-    nominal: 0.01
+    nominal: 0.044
     randomize: True
-    min: 0.005
-    max: 0.015
+    min: 0.02
+    max: 0.06
 thrust_map: # thrust = k1 * \Omega^2 + k2 * \Omega + k3
   k1:
-    nominal: 0.000000045
+    nominal: 2.0e-7
     randomize: True
-    min: 0.000000015
-    max: 0.000000075
+    min: 1.0e-7
+    max: 3.0e-7
   k2:
   k3:
 
 
-Ti_min: 0.0
-Ti_max: 25.0     # per motor
-motor_speed_min:
-motor_speed_max:
+Ti_min: 0.0                   # (per motor) [N]
+Ti_max: 15.0                  # (per motor) [N]  (Ti_max = k1 * motor_speed_max ^2)
+motor_acc_min: -80000.0       # [rad/s^2]
+motor_acc_max: 50000.0        # [rad/s^2]
+
+# TODO: I think these are not needed i T_min/max is given
+motor_speed_min: 150.0        # [rad/s]
+motor_speed_max: 8400.0       # [rad/s]
+
 
 omega_max:
 
 
-g: 9.81     # gravity acc [m/s^^2]
+g: 9.81     # gravity    [m/s^^2]
 rho: 1.225  # standard atm density at sea level [kg/m^3] 
