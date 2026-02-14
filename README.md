@@ -18,7 +18,7 @@ A PyTorch-based differentiable framework for training neural network policies to
 
 ```
 ├── cfg/
-│   └── dynamics/bicopter.yaml        # Physics params & randomization config
+│   └── dynamics/bicopter.yaml        # Physics params (not used for now)
 ├── dynamics/
 │   └── bicopter_dynamics.py          # 2D bicopter physics model
 ├── utils/
