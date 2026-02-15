@@ -1,6 +1,6 @@
 import torch
 from utils.renderer import MultiTrajectoryRenderer
-from utils.nn import BicopterPolicy
+from utils.nn import *
 from utils.rand_traj_gen import RandomTrajectoryGenerator
 from utils.randomizer import env_randomization
 from dynamics.bicopter_dynamics import BicopterDynamics
@@ -8,6 +8,9 @@ import os
 
 import hydra
 from omegaconf import DictConfig
+
+from collections import deque
+import matplotlib.pyplot as plt
 
 @hydra.main(config_path="cfg/dynamics", config_name="bicopter", version_base=None)
 def test(cfg: DictConfig):
@@ -19,6 +22,7 @@ def test(cfg: DictConfig):
     # -----------------------------------------------------------------------------
     def rollout_policy(
         state0,
+        z_true,
         policy,
         drone,
         traj_gen,
@@ -29,19 +33,21 @@ def test(cfg: DictConfig):
         eval_traj = []
         eval_target = []
         eval_actions = []
+        z_hat_history = []
 
         states = state0
         
         def get_target_safe(time):
             pos, vel, acc = traj_gen.get_target(max(time, 0.0))
-            return pos.squeeze(0), vel.squeeze(0), acc.squeeze(0)  # (2,)
+            return pos.squeeze(0), vel.squeeze(0), acc.squeeze(0)
+        
+        history = deque(maxlen=20)   # fixed window
+        z_hat = torch.zeros(2)
 
         for t in range(steps):
             x, y, vx, vy, theta, omega = states.squeeze(0)
-
             # Get reference trajectory
             pos_ref, vel_ref, acc_ref = get_target_safe(t * dt)
-            # pos_ref, vel_ref, acc_ref = traj_gen.get_target(t * dt)
 
             # Compute errors
             e_px = pos_ref[0] - x
@@ -49,7 +55,7 @@ def test(cfg: DictConfig):
             e_vx = vel_ref[0] - vx
             e_vy = vel_ref[1] - vy
 
-            # Build observation
+            # Build observation input
             obs = torch.stack([
                 e_px, e_py, e_vx, e_vy,
                 acc_ref[0],
@@ -59,9 +65,19 @@ def test(cfg: DictConfig):
                 omega
             ], dim=0)
 
+            if len(history) == 20:
+                hist_tensor = torch.stack(list(history), dim=0)
+                z_hat = adapt_module(hist_tensor.unsqueeze(0)).squeeze(0)
+
+            z_hat_history.append(z_hat.clone())
+
+            # obs = torch.cat([obs, z], dim=0)  # added ecoded env_params
+            obs = torch.cat([obs, z_hat], dim=0)  # added ecoded env_params
+
             # Update state
             actions = policy(obs)
-            states = drone.step(states, actions, control_mode=control_mode)
+            history.append(torch.cat([states, actions], dim=0))
+            states = drone.step(states, actions, control_mode=control_mode).squeeze()
 
             eval_traj.append(states)
             eval_target.append(pos_ref)
@@ -71,6 +87,7 @@ def test(cfg: DictConfig):
             torch.stack(eval_traj),
             torch.stack(eval_target),
             torch.stack(eval_actions),
+            torch.stack(z_hat_history),
         )
 
     # -----------------------------------------------------------------------------
@@ -82,6 +99,7 @@ def test(cfg: DictConfig):
     device = "cpu"
 
     drone = BicopterDynamics(cfg=cfg)
+    env_encoder = IntrinsicsEncoder(e_dim=5, z_dim=2).to(device)
     renderer = MultiTrajectoryRenderer(drone=drone, video_path=None)
     traj_gen = RandomTrajectoryGenerator(num_envs=num_envs, device=device)
 
@@ -92,9 +110,9 @@ def test(cfg: DictConfig):
     }
 
     control_modes = {
-        "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
-        # "ctbr": {"color": (0, 0, 255), "file_name": "ctbr.pt"},
-        # "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
+        "srt": {"color": (0, 255, 0)},
+        "ctbr": {"color": (0, 0, 255)},
+        "lv": {"color": (255, 165, 0)},
     }
 
     # -----------------------------------------------------------------------------
@@ -102,27 +120,39 @@ def test(cfg: DictConfig):
     # -----------------------------------------------------------------------------
     with torch.inference_mode():
         state0 = torch.zeros(6)
-        # state0[6] = drone.motor_hover_speed()                       
-        # state0[7] = drone.motor_hover_speed()
-        drone.randomize_parameters(env_randomization(cfg))
+        env_params = env_randomization(cfg, num_envs=1)
+        drone.randomize_parameters(env_params)
+        e = torch.stack([env_params["m"], env_params["J"], env_params["l"], env_params["C_Dx"], env_params["C_Dy"]], dim=1)
+        
 
         for cm, config in control_modes.items():
             policy = BicopterPolicy(
-                obs_dim=9, 
+                obs_dim=11, 
                 act_dim=ACT_DIMS[cm]
             )
+            adapt_module = AdaptationModule(input_dim=(6 + ACT_DIMS[cm]))
 
-            policy.eval()
-
-            model_path = os.path.join(output_dir, config["file_name"])
-            if not os.path.exists(model_path):
-                print(f"Warning: Model file {model_path} not found. Skipping {cm.upper()}.")
+            policy_path = os.path.join(output_dir, cm, "policy.pt")
+            encoder_path = os.path.join(output_dir, cm, "encoder.pt")
+            adapt_path = os.path.join(output_dir, cm, "adapt_module.pt")
+            if not os.path.exists(policy_path) or not os.path.exists(encoder_path):
+                print(f"Warning: Model file not found. Skipping {cm.upper()}.")
                 continue
 
-            policy.load_state_dict(torch.load(model_path, map_location="cpu"))
+            policy.load_state_dict(torch.load(policy_path, map_location="cpu"))
+            env_encoder.load_state_dict(torch.load(encoder_path, map_location="cpu"))
+            adapt_module.load_state_dict(torch.load(adapt_path, map_location="cpu"))
 
-            eval_traj, eval_target, eval_actions = rollout_policy(
+            policy.eval()
+            env_encoder.eval()
+            adapt_module.eval()
+
+
+            z_true = env_encoder(e).detach()
+
+            eval_traj, eval_target, eval_actions, z_hat_history = rollout_policy(
                 state0=state0,
+                z_true=z_true,
                 policy=policy,
                 drone=drone,
                 traj_gen=traj_gen,
@@ -141,7 +171,37 @@ def test(cfg: DictConfig):
             )
 
             print(f"Loaded and rendered {cm.upper()} policy")
+            
+            # Plot z_true vs z_hat over time
+            z_hat_history = z_hat_history.cpu().numpy()
+            z_true_val = z_true.squeeze().cpu().numpy()
+            
+            #TODO: Add this to the renderer plot_dashboard!!!
+            fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+            
+            time_steps = torch.arange(len(z_hat_history)) * dt
+            
+            axes[0].plot(time_steps, z_hat_history[:, 0], label='z_hat_0', linewidth=2)
+            axes[0].axhline(z_true_val[0], color='r', linestyle='--', label='z_true_0', linewidth=2)
+            axes[0].set_xlabel('Time (s)')
+            axes[0].set_ylabel('z[0]')
+            axes[0].set_title(f'{cm.upper()}: z[0] Estimation')
+            axes[0].legend()
+            axes[0].grid(True)
+            
+            axes[1].plot(time_steps, z_hat_history[:, 1], label='z_hat_1', linewidth=2)
+            axes[1].axhline(z_true_val[1], color='r', linestyle='--', label='z_true_1', linewidth=2)
+            axes[1].set_xlabel('Time (s)')
+            axes[1].set_ylabel('z[1]')
+            axes[1].set_title(f'{cm.upper()}: z[1] Estimation')
+            axes[1].legend()
+            axes[1].grid(True)
+            plt.tight_layout()
+            # plt.savefig(os.path.join(output_dir, cm, 'z_estimation.png'), dpi=100)
+            plt.show()
 
+
+    plt.close('all')
     renderer.run()
     renderer.plot_dashboard()
 

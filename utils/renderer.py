@@ -163,7 +163,7 @@ class MultiTrajectoryRenderer:
                 head_width=5
             )
 
-        drag_force = self.drone.calculate_drag(vx, vy, theta)
+        drag_force = self.drone._calculate_drag(vx, vy, theta)
 
         pos = self.to_screen(x, y)
 

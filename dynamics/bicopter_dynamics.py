@@ -60,7 +60,7 @@ class BicopterDynamics:
         tau = self.l * (T2 - T1)
 
         # Calculate drag forces
-        drag_x, drag_y = self.calculate_drag(vx, vy, theta)
+        drag_x, drag_y = self._calculate_drag(vx, vy, theta)
 
         # Translational dynamics
         ax =  (-torch.sin(theta) * T - drag_x) / self.m
@@ -79,7 +79,7 @@ class BicopterDynamics:
         theta = theta + omega * self.dt
         return torch.stack([x, y, vx, vy, theta, omega], dim=-1)
     
-    def calculate_drag(self, vx, vy, theta):
+    def _calculate_drag(self, vx, vy, theta):
         """
         Calculate translational drag forces using quadratic drag model in body frame.
         Converts world-frame velocities to body frame, calculates drag, then converts back to world frame.
@@ -94,8 +94,8 @@ class BicopterDynamics:
         
         # Calculate drag in body frame (quadratic drag)
         v_norm = torch.sqrt(vx_body**2 + vy_body**2 + 1e-6)
-        area_x = self.l * 0.1   # 0.1 arbitrary area sacle down factor
-        area_y = self.l
+        area_x = self.l * 0.1       # 0.1 arbitrary area sacle down factor
+        area_y = self.l * self.l    # adding fake depth  
         drag_x_body = 0.5 * self.rho * self.C_Dx * area_x * v_norm * vx_body
         drag_y_body = 0.5 * self.rho * self.C_Dy * area_y * v_norm * vy_body
         
