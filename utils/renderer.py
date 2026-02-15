@@ -121,7 +121,7 @@ class MultiTrajectoryRenderer:
 
         # Drone body
         idx = min(self.frame, len(traj) - 1)
-        x, y, vx, vy, theta, omega, Omega1, Omega2 = traj[idx].squeeze()
+        x, y, vx, vy, theta, omega = traj[idx].squeeze()
 
         # Get T and tau from control mode
         state_idx = traj[idx]
@@ -253,7 +253,7 @@ class MultiTrajectoryRenderer:
    # ===================================================
 
     def plot_dashboard(self):
-        """Plot Omega1 and Omega2 (rotor speeds) over time for all agents."""
+        """Plot dashboard ."""
         for agent_index, agent in enumerate(self.agents):
             # 1. Data preparation
             # Assuming 'action' contains sent actions and 'traj' contains states
@@ -261,9 +261,9 @@ class MultiTrajectoryRenderer:
             traj = agent["traj"].squeeze()
             target = agent["target"].squeeze()
             
-            omegas = traj[:, 6:8]  # Omegas from trajectory
+            # omegas = traj[:, 6:8]  # Omegas from trajectory
             actions = action       # Actions (control commands)
-            time_steps = np.arange(len(omegas)) * self.dt
+            time_steps = np.arange(len(traj)) * self.dt
 
             # 2. Figure setup (Dashboard)
             # Create 2 rows and 2 column sharing X axis for easier reading
@@ -306,21 +306,21 @@ class MultiTrajectoryRenderer:
             ax1.grid(True, alpha=0.3)
 
 
-            # --- Upper plot Right: Collective Thrust and Body rate ---
-            ax2.plot(time_steps, k1*omegas[:, 0]**2 + k1*omegas[:, 1]**2, label='Collective Thrust', color='purple', linewidth=1.5)
-            ax2.plot(time_steps, (k1*omegas[:, 1]**2 - k1*omegas[:, 0]**2) , label='Torque / arm_l' , color='pink', linewidth=1.5) # TODO: Add l
-            ax2.set_ylabel('Newtons (N)')
-            ax2.set_title('Thrust & Torque vs Time')
-            ax2.legend(loc='upper right')
-            ax2.grid(True, alpha=0.3)
+            # # --- Upper plot Right: Collective Thrust and Body rate ---
+            # ax2.plot(time_steps, k1*omegas[:, 0]**2 + k1*omegas[:, 1]**2, label='Collective Thrust', color='purple', linewidth=1.5)
+            # ax2.plot(time_steps, (k1*omegas[:, 1]**2 - k1*omegas[:, 0]**2) , label='Torque / arm_l' , color='pink', linewidth=1.5) # TODO: Add l
+            # ax2.set_ylabel('Newtons (N)')
+            # ax2.set_title('Thrust & Torque vs Time')
+            # ax2.legend(loc='upper right')
+            # ax2.grid(True, alpha=0.3)
 
-            # --- Lower plot Left: Actions (Control Signals) ---
-            ax3.plot(time_steps, omegas[:, 0], label='Omega 1', color='blue', linewidth=1.5)
-            ax3.plot(time_steps, omegas[:, 1], label='Omega 2', color='cyan', linestyle='--', linewidth=1.5)
-            ax3.set_ylabel('Speed (rad/s)')
-            ax3.set_title('Rotor Speeds vs Time')
-            ax3.legend(loc='upper right')
-            ax3.grid(True, alpha=0.3)
+            # # --- Lower plot Left: Actions (Control Signals) ---
+            # ax3.plot(time_steps, omegas[:, 0], label='Omega 1', color='blue', linewidth=1.5)
+            # ax3.plot(time_steps, omegas[:, 1], label='Omega 2', color='cyan', linestyle='--', linewidth=1.5)
+            # ax3.set_ylabel('Speed (rad/s)')
+            # ax3.set_title('Rotor Speeds vs Time')
+            # ax3.legend(loc='upper right')
+            # ax3.grid(True, alpha=0.3)
 
             # --- Lower plot Right: Actions (Control Signals) ---
             distances = np.sqrt((target[:, 0] - traj[:, 0])**2 + (target[:, 1] - traj[:, 1])**2).detach().cpu().numpy()

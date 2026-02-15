@@ -37,7 +37,7 @@ def test(cfg: DictConfig):
             return pos.squeeze(0), vel.squeeze(0), acc.squeeze(0)  # (2,)
 
         for t in range(steps):
-            x, y, vx, vy, theta, omega, Omega1, Omega2 = states.squeeze(0)
+            x, y, vx, vy, theta, omega = states.squeeze(0)
 
             # Get reference trajectory
             pos_ref, vel_ref, acc_ref = get_target_safe(t * dt)
@@ -92,19 +92,18 @@ def test(cfg: DictConfig):
     }
 
     control_modes = {
-        "srt": {"color": (0, 255, 0), "file_name": "srt4.pt"},
-        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr4.pt"},
+        "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
+        # "ctbr": {"color": (0, 0, 255), "file_name": "ctbr.pt"},
         # "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
-        "lv": {"color": (255, 165, 0), "file_name": "lv4.pt"},
     }
 
     # -----------------------------------------------------------------------------
     # Evaluation
     # -----------------------------------------------------------------------------
     with torch.inference_mode():
-        state0 = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        state0[6] = drone.motor_hover_speed()                       
-        state0[7] = drone.motor_hover_speed()
+        state0 = torch.zeros(6)
+        # state0[6] = drone.motor_hover_speed()                       
+        # state0[7] = drone.motor_hover_speed()
         drone.randomize_parameters(env_randomization(cfg))
 
         for cm, config in control_modes.items():
@@ -144,7 +143,7 @@ def test(cfg: DictConfig):
             print(f"Loaded and rendered {cm.upper()} policy")
 
     renderer.run()
-    # renderer.plot_dashboard()
+    renderer.plot_dashboard()
 
 if __name__ == "__main__":
     test()
