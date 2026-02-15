@@ -22,10 +22,10 @@ def train(cfg: DictConfig):
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = "cpu"
-    num_envs = 1 if device == "cpu" else  1024
+    num_envs = 1 if device == "cpu" else  2024
     print(f"num_envs: {num_envs}")
     epochs = 200
-    steps  = 500
+    steps  = 300
     horizon = 50 
     dt = 0.01
 

@@ -56,11 +56,18 @@ class BicopterDynamics:
         T1_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1_cmd) / self.Ti_max)
         T2_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2_cmd) / self.Ti_max)
 
-        Omega1_cmd = torch.sqrt(T1_cmd / self.k1)
-        Omega2_cmd = torch.sqrt(T2_cmd / self.k1)
+        # Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=self.eps))
+        # Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=self.eps))
+
+        # Note for future adam: The sqrt is giving nan in backpropagation only for the lv control mode, that's why I have to clamp it in this wierd way
+        Omega1_cmd = torch.sqrt(self._differentiable_clamp(T1_cmd / self.k1, self.Omega_min**2, self.Omega_max**2))
+        Omega2_cmd = torch.sqrt(self._differentiable_clamp(T2_cmd / self.k1, self.Omega_min**2, self.Omega_max**2))
+
+        # Omega1_cmd = torch.sqrt(T1_cmd / self.k1)
+        # Omega2_cmd = torch.sqrt(T2_cmd / self.k1)
         
-        Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=self.eps))
-        Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=self.eps))
+        # Omega1_cmd = self._differentiable_clamp(Omega1_cmd, self.Omega_min, self.Omega_max)
+        # Omega2_cmd = self._differentiable_clamp(Omega2_cmd, self.Omega_min, self.Omega_max)
 
         km1 = torch.where(Omega1_cmd > Omega1, self.km_up, self.km_down)
         km2 = torch.where(Omega2_cmd > Omega2, self.km_up, self.km_down)

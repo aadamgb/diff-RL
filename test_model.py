@@ -92,8 +92,8 @@ def test(cfg: DictConfig):
     }
 
     control_modes = {
-        "srt": {"color": (0, 255, 0), "file_name": "srt.pt"},
-        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr.pt"},
+        "srt": {"color": (0, 255, 0), "file_name": "srt4.pt"},
+        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr4.pt"},
         # "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
         "lv": {"color": (255, 165, 0), "file_name": "lv4.pt"},
     }

@@ -63,14 +63,10 @@ Ti_min: 0.0                   # (per motor) [N]
 Ti_max: 15.0                  # (per motor) [N]  (Ti_max = k1 * motor_speed_max ^2)
 motor_acc_min: -80000.0       # [rad/s^2]
 motor_acc_max: 50000.0        # [rad/s^2]
-
-# TODO: I think these are not needed i T_min/max is given
 motor_speed_min: 150.0        # [rad/s]
 motor_speed_max: 8400.0       # [rad/s]
 
-
 omega_max:
-
 
 g: 9.81     # gravity    [m/s^^2]
 rho: 1.225  # standard atm density at sea level [kg/m^3] 
