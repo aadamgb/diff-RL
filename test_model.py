@@ -177,33 +177,28 @@ def test(cfg: DictConfig):
             z_true_val = z_true.squeeze().cpu().numpy()
             
             #TODO: Add this to the renderer plot_dashboard!!!
-            fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+            fig, ax = plt.subplots(figsize=(10, 6))
             
             time_steps = torch.arange(len(z_hat_history)) * dt
             
-            axes[0].plot(time_steps, z_hat_history[:, 0], label='z_hat_0', linewidth=2)
-            axes[0].axhline(z_true_val[0], color='r', linestyle='--', label='z_true_0', linewidth=2)
-            axes[0].set_xlabel('Time (s)')
-            axes[0].set_ylabel('z[0]')
-            axes[0].set_title(f'{cm.upper()}: z[0] Estimation')
-            axes[0].legend()
-            axes[0].grid(True)
+            ax.plot(time_steps, z_hat_history[:, 0], label='z_hat[0]', linewidth=2)
+            ax.axhline(z_true_val[0], color='blue', linestyle='--', label='z_true[0]', linewidth=2)
+            ax.plot(time_steps, z_hat_history[:, 1], label='z_hat[1]', linewidth=2)
+            ax.axhline(z_true_val[1], color='orange', linestyle='--', label='z_true[1]', linewidth=2)
             
-            axes[1].plot(time_steps, z_hat_history[:, 1], label='z_hat_1', linewidth=2)
-            axes[1].axhline(z_true_val[1], color='r', linestyle='--', label='z_true_1', linewidth=2)
-            axes[1].set_xlabel('Time (s)')
-            axes[1].set_ylabel('z[1]')
-            axes[1].set_title(f'{cm.upper()}: z[1] Estimation')
-            axes[1].legend()
-            axes[1].grid(True)
+            ax.set_xlabel('Time (s)')
+            ax.set_ylabel('z values')
+            ax.set_title(f'{cm.upper()}: z Estimation')
+            ax.legend()
+            ax.grid(True)
             plt.tight_layout()
-            # plt.savefig(os.path.join(output_dir, cm, 'z_estimation.png'), dpi=100)
+            plt.savefig(os.path.join(output_dir, cm, 'z_estimation.png'), dpi=100)
             plt.show()
 
 
     plt.close('all')
     renderer.run()
-    renderer.plot_dashboard()
+    # renderer.plot_dashboard()
 
 if __name__ == "__main__":
     test()

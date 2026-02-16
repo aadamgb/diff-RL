@@ -23,7 +23,7 @@ def train_P1(cm, cfg: DictConfig):
     # device = "cpu"
     num_envs = 1 if device == "cpu" else   1024 * 2
     print(f"num_envs: {num_envs}")
-    epochs = 100
+    epochs = 200
     steps  = 300
     horizon = 50 
     dt = 0.01
@@ -244,11 +244,11 @@ def train_P2(dt,
 
 @hydra.main(config_path="cfg/dynamics", config_name="bicopter", version_base=None)
 def main(cfg: DictConfig):
-    cm = "srt" 
+    cm = "ctbr" 
     dt = 0.01
     steps = 300
     horizon = 20
-    epochs = 100
+    epochs = 200
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_envs = 1024 if device.type == "cuda" else 1
 
