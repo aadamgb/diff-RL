@@ -22,7 +22,7 @@ def test(cfg: DictConfig):
     # -----------------------------------------------------------------------------
     def rollout_policy(
         state0,
-        z_true,
+        # z_true,
         policy,
         drone,
         traj_gen,
@@ -33,7 +33,7 @@ def test(cfg: DictConfig):
         eval_traj = []
         eval_target = []
         eval_actions = []
-        z_hat_history = []
+        # z_hat_history = []
 
         states = state0
         
@@ -65,25 +65,25 @@ def test(cfg: DictConfig):
                 omega
             ], dim=0)
 
-            if len(history) == 20:
-                hist_tensor = torch.stack(list(history), dim=0)
-                z_hat = adapt_module(hist_tensor.unsqueeze(0)).squeeze(0)
+            # if len(history) == 20:
+            #     hist_tensor = torch.stack(list(history), dim=0)
+            #     z_hat = adapt_module(hist_tensor.unsqueeze(0)).squeeze(0)
 
-            z_hat_history.append(z_hat.clone())
+            # z_hat_history.append(z_hat.clone())
 
             # obs = torch.cat([obs, z], dim=0)  # added ecoded env_params
-            obs = torch.cat([obs, z_hat], dim=0)  # added ecoded env_params
+            # obs = torch.cat([obs, z_hat], dim=0)  # added ecoded env_params
 
             # Update state
             actions = policy(obs)
             history.append(torch.cat([states, actions], dim=0))
             states = drone.step(states, actions, control_mode=control_mode).squeeze()
 
-            rand_mass = {"m" : 0.2}
-            e_new =  env_randomization(cfg, num_envs=1)
-            if t == 800:
-                drone.randomize_parameters(e_new)
-                print(f"New newparams{e_new}")
+            # rand_mass = {"m" : 0.2}
+            # e_new =  env_randomization(cfg, num_envs=1)
+            # if t == 800:
+            #     drone.randomize_parameters(e_new)
+            #     print(f"New newparams{e_new}")
 
             eval_traj.append(states)
             eval_target.append(pos_ref)
@@ -93,7 +93,7 @@ def test(cfg: DictConfig):
             torch.stack(eval_traj),
             torch.stack(eval_target),
             torch.stack(eval_actions),
-            torch.stack(z_hat_history),
+            # torch.stack(z_hat_history),
         )
 
     # -----------------------------------------------------------------------------
@@ -128,36 +128,36 @@ def test(cfg: DictConfig):
         for cm, config in control_modes.items():
             state0 = torch.zeros(6)
             env_params = env_randomization(cfg, num_envs=1)
-            print(f"Initial params {env_params}")
+            # print(f"Initial params {env_params}")
             drone.randomize_parameters(env_params)
-            e = torch.stack([env_params["m"], env_params["J"], env_params["l"], env_params["C_Dx"], env_params["C_Dy"]], dim=1)
+            # e = torch.stack([env_params["m"], env_params["J"], env_params["l"], env_params["C_Dx"], env_params["C_Dy"]], dim=1)
             policy = BicopterPolicy(
-                obs_dim=11, 
+                obs_dim=9, 
                 act_dim=ACT_DIMS[cm]
             )
             adapt_module = AdaptationModule(input_dim=(6 + ACT_DIMS[cm]))
 
             policy_path = os.path.join(output_dir, cm, "policy.pt")
-            encoder_path = os.path.join(output_dir, cm, "encoder.pt")
-            adapt_path = os.path.join(output_dir, cm, "adapt_module.pt")
-            if not os.path.exists(policy_path) or not os.path.exists(encoder_path):
-                print(f"Warning: Model file not found. Skipping {cm.upper()}.")
-                continue
+            # encoder_path = os.path.join(output_dir, cm, "encoder.pt")
+            # adapt_path = os.path.join(output_dir, cm, "adapt_module.pt")
+            # if not os.path.exists(policy_path) or not os.path.exists(encoder_path):
+            #     print(f"Warning: Model file not found. Skipping {cm.upper()}.")
+            #     continue
 
             policy.load_state_dict(torch.load(policy_path, map_location="cpu"))
-            env_encoder.load_state_dict(torch.load(encoder_path, map_location="cpu"))
-            adapt_module.load_state_dict(torch.load(adapt_path, map_location="cpu"))
+            # env_encoder.load_state_dict(torch.load(encoder_path, map_location="cpu"))
+            # adapt_module.load_state_dict(torch.load(adapt_path, map_location="cpu"))
 
             policy.eval()
-            env_encoder.eval()
-            adapt_module.eval()
+            # env_encoder.eval()
+            # adapt_module.eval()
 
 
-            z_true = env_encoder(e).detach()
+            # z_true = env_encoder(e).detach()
 
-            eval_traj, eval_target, eval_actions, z_hat_history = rollout_policy(
+            eval_traj, eval_target, eval_actions = rollout_policy(
                 state0=state0,
-                z_true=z_true,
+                # z_true=z_true,
                 policy=policy,
                 drone=drone,
                 traj_gen=traj_gen,
@@ -173,14 +173,14 @@ def test(cfg: DictConfig):
                 control_mode=cm,
                 color=config["color"],
                 name=cm.upper(),
-                z_hat_history=z_hat_history,
-                z_true=z_true,
+                # z_hat_history=z_hat_history,
+                # z_true=z_true,
             )
 
             print(f"Loaded and rendered {cm.upper()} policy")
 
     renderer.run()
-    renderer.plot_dashboard()
+    # renderer.plot_dashboard()
 
 if __name__ == "__main__":
     test()

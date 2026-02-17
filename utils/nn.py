@@ -33,6 +33,20 @@ class IntrinsicsEncoder(nn.Module):
 
     def forward(self, e):
         return self.net(e)
+    
+class MLP(nn.Module):
+    def __init__(self, input, hidden, output):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(),
+            nn.Linear(hidden, output)
+        )
+
+    def forward(self, x):
+        return self.net(x)
 
 
 class AdaptationModule(nn.Module):
@@ -59,3 +73,57 @@ class AdaptationModule(nn.Module):
         x = x.flatten(1)              # (B, 32*k)
         z_hat = self.fc(x)
         return z_hat
+
+
+class DeterministicRSSM(nn.Module):
+    def __init__(self, obs_dim, act_dim, embed_dim=32, hidden_dim=64):
+        super().__init__()
+
+        # Observation encoder
+        self.encoder = MLP(obs_dim, 64, embed_dim)
+
+        # GRU sequence model
+        self.gru = nn.GRU(
+            input_size=embed_dim + act_dim,
+            hidden_size=hidden_dim,
+            batch_first=True
+        )
+
+        # Decoder (predict next observation)
+        self.decoder = MLP(hidden_dim, 64, obs_dim)
+
+        self.hidden_dim = hidden_dim
+
+    def forward(self, obs_seq, act_seq, h0=None):
+        """
+        obs_seq: (B, T, obs_dim)
+        act_seq: (B, T, act_dim)
+
+        Returns:
+            pred_obs: (B, T, obs_dim)
+            h_T: final hidden state
+        """
+
+        B, T, _ = obs_seq.shape
+
+        # Encode observations
+        obs_flat = obs_seq.reshape(B * T, -1)
+        embed = self.encoder(obs_flat)
+        embed = embed.reshape(B, T, -1)
+
+        # Concatenate embedding and action
+        gru_input = torch.cat([embed, act_seq], dim=-1)
+
+        # Initialize hidden state
+        if h0 is None:
+            h0 = torch.zeros(1, B, self.hidden_dim, device=obs_seq.device)
+
+        # GRU forward
+        h_seq, h_T = self.gru(gru_input, h0)
+
+        # Decode predictions
+        h_flat = h_seq.reshape(B * T, -1)
+        pred_obs = self.decoder(h_flat)
+        pred_obs = pred_obs.reshape(B, T, -1)
+
+        return pred_obs, h_T
