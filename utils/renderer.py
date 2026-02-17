@@ -39,14 +39,16 @@ class MultiTrajectoryRenderer:
             int(self.height // 2 - y * self.scale)
         )
 
-    def add_agent(self, trajectory, target_trajectory, action, control_mode, color, name=None):
+    def add_agent(self, trajectory, target_trajectory, action, control_mode, color, name=None, z_hat_history=None, z_true=None):
         self.agents.append({
             "traj": trajectory,
             "target": target_trajectory,
             "action" : action,
             "cm" : control_mode,
             "color": color,
-            "name": name
+            "name": name,
+            "z_hat_history": z_hat_history,
+            "z_true": z_true
         })
     
     
@@ -260,6 +262,8 @@ class MultiTrajectoryRenderer:
             action = agent["action"].squeeze()
             traj = agent["traj"].squeeze()
             target = agent["target"].squeeze()
+            z_hat_history = agent["z_hat_history"].squeeze()
+            z_true_val = agent["z_true"].squeeze()
             
             # omegas = traj[:, 6:8]  # Omegas from trajectory
             actions = action       # Actions (control commands)
@@ -314,6 +318,17 @@ class MultiTrajectoryRenderer:
             # ax2.legend(loc='upper right')
             # ax2.grid(True, alpha=0.3)
 
+            # --- Upper plot Right: Collective Thrust and Body rate ---
+            ax2.plot(time_steps, z_hat_history[:, 0], label='z_hat[0]', linewidth=2)
+            ax2.axhline(z_true_val[0], color='blue', linestyle='--', label='z_true[0]', linewidth=2)
+            ax2.plot(time_steps, z_hat_history[:, 1], label='z_hat[0]', linewidth=2)
+            ax2.axhline(z_true_val[1], color='orange', linestyle='--', label='z_true[0]', linewidth=2)
+            ax2.set_ylabel('Intrinsec vector z')
+            ax2.set_title("Intrinsec Estimation vs Time")
+            ax2.legend(loc='upper right')
+            ax2.grid(True, alpha=0.3)
+
+
             # # --- Lower plot Left: Actions (Control Signals) ---
             # ax3.plot(time_steps, omegas[:, 0], label='Omega 1', color='blue', linewidth=1.5)
             # ax3.plot(time_steps, omegas[:, 1], label='Omega 2', color='cyan', linestyle='--', linewidth=1.5)
@@ -332,8 +347,5 @@ class MultiTrajectoryRenderer:
             ax4.legend(loc='upper right')
             ax4.grid(True, alpha=0.3)
             
-            # Automatic adjustment to prevent title overlap
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95]) 
-
         # Show all windows simultaneously
         plt.show()
