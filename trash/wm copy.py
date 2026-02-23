@@ -19,11 +19,11 @@ def train(cm, cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_envs = 1 if device.type == "cpu" else 2048
 
-    epochs  = 5
+    epochs  = 600
     steps   = 300
     horizon = 50
     dt      = 0.01
-    K_rollout = 5   # multi-step imagination horizon
+    # K_rollout = 40   # multi-step imagination horizon
 
     # -------------------------------------------------
     # Environment
@@ -40,20 +40,20 @@ def train(cm, cfg: DictConfig):
     # -------------------------------------------------
     # Deterministic World Model 
     # -------------------------------------------------
-    obs_encoder   = MLP(input=6, hidden=8, output=12).to(device)
-    sequence_model = nn.GRU(
-        input_size=12 + ACT_DIMS[cm],
-        hidden_size=64,
-        batch_first=True
-    ).to(device)
-    obs_decoder   = MLP(input=64, hidden=8, output=6).to(device)  # predicts delta_state
+    # state_dim  = 6
+    # sequence_model = nn.GRU(
+    #     input_size=state_dim + ACT_DIMS[cm],
+    #     hidden_size=64,
+    #     batch_first=True
+    # ).to(device)
 
-    wm_optimizer = torch.optim.Adam(
-        list(obs_encoder.parameters()) +
-        list(sequence_model.parameters()) +
-        list(obs_decoder.parameters()),
-        lr=1e-3
-    )
+    # state_head = nn.Linear(64, state_dim).to(device)
+
+    # wm_optimizer = torch.optim.Adam(
+    #     list(sequence_model.parameters()) +
+    #     list(state_head.parameters()),
+    #     lr=1e-3
+    # )
 
     # =================================================
     # TRAINING LOOP
@@ -61,17 +61,14 @@ def train(cm, cfg: DictConfig):
     for epoch in range(epochs):
 
         traj_gen.reset()
-        env_params = env_randomization(cfg, num_envs, device)
-        drone.randomize_parameters(env_params)
+        # env_params = env_randomization(cfg, num_envs, device)
+        # drone.randomize_parameters(env_params)
 
         states = torch.zeros((num_envs, 6), device=device)
         states[:, :2] = torch.rand((num_envs, 2), device=device) * 5.0
 
         epoch_policy_loss = 0.0
         epoch_wm_loss     = 0.0
-
-        last_traj_chunk = None
-        last_actions_chunk = None
 
         for chunk_start in range(0, steps, horizon):
 
@@ -110,10 +107,6 @@ def train(cm, cfg: DictConfig):
             traj_chunk    = torch.stack(chunk_states)   # (T,B,6)
             actions_chunk = torch.stack(chunk_actions)
 
-            # Cache last chunk for plotting after training
-            last_traj_chunk = traj_chunk.detach().cpu()[:, 0, :]
-            last_actions_chunk = actions_chunk.detach().cpu()[:, 0, :]
-
             # ------------------------------------------
             # 2️⃣ Policy Loss (Tracking)
             # ------------------------------------------
@@ -133,88 +126,61 @@ def train(cm, cfg: DictConfig):
             states = states.detach()
             epoch_policy_loss += policy_loss.item()
 
-            # ------------------------------------------
-            # 3️⃣ World Model Training (Multi-Step Δ-state)
-            # ------------------------------------------
-            traj_chunk    = traj_chunk.detach()
-            actions_chunk = actions_chunk.detach()
-            T, B, _ = traj_chunk.shape
-            h = torch.zeros(1, B, 64, device=device)
-            wm_optimizer.zero_grad()
-            wm_loss = 0.0
+            # # ------------------------------------------
+            # # 3️⃣ World Model Training (Direct GRU)
+            # # ------------------------------------------
+            # traj_chunk    = traj_chunk.detach()
+            # actions_chunk = actions_chunk.detach()
 
-            # Loop over the chunk in K_rollout steps
-            for t in range(T - K_rollout):
-                o_input = traj_chunk[t]          # start state                
+            # T, B, _ = traj_chunk.shape
+            # wm_optimizer.zero_grad()
+            # wm_loss = 0.0
 
-                for k in range(K_rollout):
-                    a_t = actions_chunk[t+k]
+            # for t in range(T - K_rollout):
 
-                    e_t = obs_encoder(o_input)
-                    inp = torch.cat([e_t, a_t], dim=1).unsqueeze(1)   # (B,1,features)
-                    out, h = sequence_model(inp, h)
+            #     # reset hidden for each rollout start
+            #     h = torch.zeros(1, B, 64, device=device)
 
-                    o_hat = obs_decoder(out.squeeze(1))
+            #     state_input = traj_chunk[t]
 
-                    o_target = traj_chunk[t+k+1]
-                    wm_loss += ((o_hat - o_target)**2).mean()
+            #     for k in range(K_rollout):
 
-                    # Feed predicted state as input for next step
-                    o_input = o_hat
+            #         action_input = actions_chunk[t + k]
 
-            wm_loss /= (T - K_rollout) * K_rollout
-            wm_loss.backward()
-            wm_optimizer.step()
-            epoch_wm_loss += wm_loss.item()
+            #         inp = torch.cat([state_input, action_input], dim=1).unsqueeze(1)
+
+            #         out, h = sequence_model(inp, h)
+
+            #         pred_state = state_head(out.squeeze(1))
+
+            #         target_state = traj_chunk[t + k + 1]
+
+            #         wm_loss += ((pred_state - target_state) ** 2).mean()
+                    
+            #         # feed prediction forward
+            #         state_input = pred_state
+
+            # # Debug: print predictions vs targets
+            # if epoch % 10 == 0 and (t+k) == 25:
+            #     print(f"Step {t+k} | pred_state: x={pred_state[0,0]:.4f}, y={pred_state[0,1]:.4f}, vx={pred_state[0,2]:.4f}, vy={pred_state[0,3]:.4f}, theta={pred_state[0,4]:.4f}, omega={pred_state[0,5]:.4f}")
+            #     print(f"Step {t+k} | target_state: x={target_state[0,0]:.4f}, y={target_state[0,1]:.4f}, vx={target_state[0,2]:.4f}, vy={target_state[0,3]:.4f}, theta={target_state[0,4]:.4f}, omega={target_state[0,5]:.4f}")
+
+
+            # wm_loss /= (T - K_rollout) * K_rollout
+
+            # wm_loss.backward()
+            # torch.nn.utils.clip_grad_norm_(
+            #     list(sequence_model.parameters()) + list(state_head.parameters()),
+            #     1.0
+            # )
+            # wm_optimizer.step()
+
+            # epoch_wm_loss += wm_loss.item()
 
         if epoch % 10 == 0:
             print(f"Epoch {epoch} | Policy Loss: {epoch_policy_loss:.4f} | World Model Loss: {epoch_wm_loss:.6f}")
-
-    # -------------------------------------------------
-    # Plot o_hat vs o_target for one environment
-    # -------------------------------------------------
-    if last_traj_chunk is not None and last_actions_chunk is not None:
-        with torch.no_grad():
-            T = last_traj_chunk.shape[0]
-            o_input = last_traj_chunk[0].to(device)
-            h = torch.zeros(1, 1, 64, device=device)
-
-            o_hat_seq = []
-            o_target_seq = []
-
-            for t in range(T - 1):
-                a_t = last_actions_chunk[t].to(device)
-                e_t = obs_encoder(o_input.unsqueeze(0))
-                inp = torch.cat([e_t, a_t.unsqueeze(0)], dim=1).unsqueeze(1)
-                out, h = sequence_model(inp, h)
-                o_hat  = obs_decoder(out.squeeze(1))
-  
-                o_hat_seq.append(o_hat.squeeze(0).cpu())
-                o_target_seq.append(last_traj_chunk[t + 1])
-
-                o_input = o_hat.squeeze(0)
-
-            o_hat_seq = torch.stack(o_hat_seq).numpy()
-            o_target_seq = torch.stack(o_target_seq).numpy()
-
-        fig, axes = plt.subplots(3, 2, figsize=(12, 8), sharex=True)
-        dims = ["x", "y", "vx", "vy", "theta", "omega"]
-        for i, ax in enumerate(axes.flatten()):
-            ax.plot(o_hat_seq[:, i], label="o_hat")
-            ax.plot(o_target_seq[:, i], label="o_target")
-            ax.set_title(dims[i])
-            ax.grid(True, alpha=0.3)
-
-        axes[0, 0].legend(loc="upper right")
-        fig.suptitle("World Model: o_hat vs o_target (env 0)")
-        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-
-        plot_dir = os.path.join(os.path.dirname(__file__), "outputs", cm)
-        os.makedirs(plot_dir, exist_ok=True)
-        plot_path = os.path.join(plot_dir, "o_hat_vs_o_target.png")
-        fig.savefig(plot_path, dpi=150)
-        plt.close(fig)
-        print(f"Saved plot: {plot_path}")
+            # print(f"Step {t+k} | pred_state: x={pred_state[0,0]:.4f}, y={pred_state[0,1]:.4f}, vx={pred_state[0,2]:.4f}, vy={pred_state[0,3]:.4f}, theta={pred_state[0,4]:.4f}, omega={pred_state[0,5]:.4f}")
+            # print(f"Step {t+k} | target_state: x={target_state[0,0]:.4f}, y={target_state[0,1]:.4f}, vx={target_state[0,2]:.4f}, vy={target_state[0,3]:.4f}, theta={target_state[0,4]:.4f}, omega={target_state[0,5]:.4f}")
 
     # -------------------------------------------------
     # Save models
@@ -222,10 +188,9 @@ def train(cm, cfg: DictConfig):
     output_dir = os.path.join(os.path.dirname(__file__), "outputs", cm)
     os.makedirs(output_dir, exist_ok=True)
     torch.save(policy.state_dict(), os.path.join(output_dir, "policy.pt"))
-    torch.save(obs_encoder.state_dict(), os.path.join(output_dir, "obs_encoder.pt"))
-    torch.save(sequence_model.state_dict(), os.path.join(output_dir, "sequence_model.pt"))
-    torch.save(obs_decoder.state_dict(), os.path.join(output_dir, "obs_decoder.pt"))
-    print("Policy and World model saved!\n")
+    # torch.save(sequence_model.state_dict(), os.path.join(output_dir, "sequence_model.pt"))
+    # torch.save(state_head.state_dict(), os.path.join(output_dir, "state_head.pt"))
+    print("Policy and Sequence model saved!\n")
 
 
         

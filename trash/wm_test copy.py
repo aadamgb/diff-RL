@@ -16,11 +16,10 @@ from dynamics.bicopter_dynamics import BicopterDynamics
 # ============================================================
 
 class LearnedBicopterDynamics(nn.Module):
-    def __init__(self, obs_encoder, sequence_model, obs_decoder, act_dim, device="cpu"):
+    def __init__(self, sequence_model, state_head, act_dim, device="cpu"):
         super().__init__()
-        self.encoder = obs_encoder
         self.gru = sequence_model
-        self.decoder = obs_decoder
+        self.state_head = state_head
         self.device = device
         self.hidden_size = sequence_model.hidden_size
         self.act_dim = act_dim
@@ -34,12 +33,11 @@ class LearnedBicopterDynamics(nn.Module):
         state: (1, 6)
         action: (1, act_dim)
         """
-        e = self.encoder(state)                     # (1, 32)
-        inp = torch.cat([e, action], dim=1)         # (1, 32 + act_dim)
+        inp = torch.cat([state, action], dim=1)         # (1, 32 + act_dim)
         inp = inp.unsqueeze(1)                      # (1, 1, features)
 
         out, self.h = self.gru(inp, self.h)         # (1,1,64)
-        next_state = self.decoder(out.squeeze(1))   # (1,6)
+        next_state = self.state_head(out.squeeze(1))   # (1,6)
 
         return next_state
 
@@ -112,7 +110,7 @@ def rollout_policy(
 def test(cfg: DictConfig):
 
     device = torch.device("cpu")
-    steps = 3000
+    steps = 50
     dt = 0.01
     cm = "srt"
 
@@ -133,29 +131,34 @@ def test(cfg: DictConfig):
     policy.eval()
 
     # --------------------------------------------------------
-    # Load World Model
+    # Load World Model (Direct GRU)
     # --------------------------------------------------------
 
-    obs_encoder = MLP(input=6, hidden=64, output=12).to(device)
+    state_dim = 6
+    action_dim = ACT_DIMS[cm]
+
     sequence_model = nn.GRU(
-        input_size=12 + ACT_DIMS[cm],
+        input_size=state_dim + action_dim,
         hidden_size=64,
         batch_first=True
     ).to(device)
-    obs_decoder = MLP(input=64, hidden=64, output=6).to(device)
 
-    obs_encoder.load_state_dict(torch.load(os.path.join(output_dir, "obs_encoder.pt"), map_location=device))
-    sequence_model.load_state_dict(torch.load(os.path.join(output_dir, "sequence_model.pt"), map_location=device))
-    obs_decoder.load_state_dict(torch.load(os.path.join(output_dir, "obs_decoder.pt"), map_location=device))
+    state_head = nn.Linear(64, state_dim).to(device)
 
-    obs_encoder.eval()
+    sequence_model.load_state_dict(
+        torch.load(os.path.join(output_dir, "sequence_model.pt"), map_location=device)
+    )
+
+    state_head.load_state_dict(
+        torch.load(os.path.join(output_dir, "state_head.pt"), map_location=device)
+    )
+
     sequence_model.eval()
-    obs_decoder.eval()
+    state_head.eval()
 
     learned_dynamics = LearnedBicopterDynamics(
-        obs_encoder,
         sequence_model,
-        obs_decoder,
+        state_head,
         ACT_DIMS[cm],
         device=device
     )
@@ -175,8 +178,8 @@ def test(cfg: DictConfig):
     traj_gen = RandomTrajectoryGenerator(num_envs=1, device=device)
 
     state0 = torch.zeros(6)
-    state0[0] = -3.0
-    state0[1] = 3.0
+    # state0[0] = -3.0
+    # state0[1] = 3.0
 
     # --------------------------------------------------------
     # Rollouts

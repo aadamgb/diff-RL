@@ -47,8 +47,8 @@ class MultiTrajectoryRenderer:
             "cm" : control_mode,
             "color": color,
             "name": name,
-            "z_hat_history": z_hat_history,
-            "z_true": z_true
+            # "z_hat_history": z_hat_history,
+            # "z_true": z_true
         })
     
     
@@ -262,8 +262,8 @@ class MultiTrajectoryRenderer:
             action = agent["action"].squeeze()
             traj = agent["traj"].squeeze()
             target = agent["target"].squeeze()
-            z_hat_history = agent["z_hat_history"].squeeze()
-            z_true_val = agent["z_true"].squeeze()
+            # z_hat_history = agent["z_hat_history"].squeeze()
+            # z_true_val = agent["z_true"].squeeze()
             
             # omegas = traj[:, 6:8]  # Omegas from trajectory
             actions = action       # Actions (control commands)
@@ -319,14 +319,14 @@ class MultiTrajectoryRenderer:
             # ax2.grid(True, alpha=0.3)
 
             # --- Upper plot Right: Collective Thrust and Body rate ---
-            ax2.plot(time_steps, z_hat_history[:, 0], label='z_hat[0]', linewidth=2)
-            ax2.axhline(z_true_val[0], color='blue', linestyle='--', label='z_true[0]', linewidth=2)
-            ax2.plot(time_steps, z_hat_history[:, 1], label='z_hat[0]', linewidth=2)
-            ax2.axhline(z_true_val[1], color='orange', linestyle='--', label='z_true[0]', linewidth=2)
-            ax2.set_ylabel('Intrinsec vector z')
-            ax2.set_title("Intrinsec Estimation vs Time")
-            ax2.legend(loc='upper right')
-            ax2.grid(True, alpha=0.3)
+            # ax2.plot(time_steps, z_hat_history[:, 0], label='z_hat[0]', linewidth=2)
+            # ax2.axhline(z_true_val[0], color='blue', linestyle='--', label='z_true[0]', linewidth=2)
+            # ax2.plot(time_steps, z_hat_history[:, 1], label='z_hat[0]', linewidth=2)
+            # ax2.axhline(z_true_val[1], color='orange', linestyle='--', label='z_true[0]', linewidth=2)
+            # ax2.set_ylabel('Intrinsec vector z')
+            # ax2.set_title("Intrinsec Estimation vs Time")
+            # ax2.legend(loc='upper right')
+            # ax2.grid(True, alpha=0.3)
 
 
             # # --- Lower plot Left: Actions (Control Signals) ---
