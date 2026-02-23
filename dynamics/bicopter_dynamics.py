@@ -56,29 +56,17 @@ class BicopterDynamics:
         T1_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1_cmd) / self.Ti_max)
         T2_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2_cmd) / self.Ti_max)
 
-        # Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=self.eps))
-        # Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=self.eps))
-
-        # Note for future adam: The sqrt is giving nan in backpropagation only for the lv control mode, that's why I have to clamp it in this wierd way
-        Omega1_cmd = torch.sqrt(self._differentiable_clamp(T1_cmd / self.k1, self.Omega_min**2, self.Omega_max**2))
-        Omega2_cmd = torch.sqrt(self._differentiable_clamp(T2_cmd / self.k1, self.Omega_min**2, self.Omega_max**2))
-
-        # Omega1_cmd = torch.sqrt(T1_cmd / self.k1)
-        # Omega2_cmd = torch.sqrt(T2_cmd / self.k1)
-        
-        # Omega1_cmd = self._differentiable_clamp(Omega1_cmd, self.Omega_min, self.Omega_max)
-        # Omega2_cmd = self._differentiable_clamp(Omega2_cmd, self.Omega_min, self.Omega_max)
+        Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=self.eps))
+        Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=self.eps))
 
         km1 = torch.where(Omega1_cmd > Omega1, self.km_up, self.km_down)
         km2 = torch.where(Omega2_cmd > Omega2, self.km_up, self.km_down)
         
         # Adding the motor dynamics (delay)
-        Omega1_dot = (Omega1_cmd - Omega1) / km1
-        Omega2_dot = (Omega2_cmd - Omega2) / km2
-
-        # Saturate motor accelerations while preserving differentiability
-        Omega1_dot = self._differentiable_clamp(Omega1_dot, self.Omega_dot_min, self.Omega_dot_max)
-        Omega2_dot = self._differentiable_clamp(Omega2_dot, self.Omega_dot_min, self.Omega_dot_max)
+        Omega1_dot = torch.clamp((Omega1_cmd - Omega1) / km1, 
+                                 self.Omega_dot_min, self.Omega_dot_max)
+        Omega2_dot = torch.clamp((Omega2_cmd - Omega2) / km2, 
+                                 self.Omega_dot_min, self.Omega_dot_max)
         
         # Integrate to get new motor speeds
         Omega1 = Omega1 + Omega1_dot * self.dt
@@ -88,8 +76,6 @@ class BicopterDynamics:
         T1 = self.k1 * Omega1**2
         T2 = self.k1 * Omega2**2
 
-        # T1 = T1_cmd
-        # T2 = T2_cmd
         T = T1 + T2
         tau = self.l * (T2 - T1)
 

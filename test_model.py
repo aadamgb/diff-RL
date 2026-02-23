@@ -1,4 +1,8 @@
 import torch
+import pickle
+import numpy as np
+import jax
+import jax.numpy as jnp
 from utils.renderer import MultiTrajectoryRenderer
 from utils.nn import BicopterPolicy
 from utils.rand_traj_gen import RandomTrajectoryGenerator
@@ -92,10 +96,9 @@ def test(cfg: DictConfig):
     }
 
     control_modes = {
-        "srt": {"color": (0, 255, 0), "file_name": "srt4.pt"},
-        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr4.pt"},
-        # "lv": {"color": (255, 165, 0), "file_name": "lv.pt"},
-        "lv": {"color": (255, 165, 0), "file_name": "lv4.pt"},
+        "srt": {"color": (0, 255, 0), "file_name": "srt4.pkl"},
+        "ctbr": {"color": (0, 0, 255), "file_name": "ctbr4.pkl"},
+        "lv": {"color": (255, 165, 0), "file_name": "lv4.pkl"},
     }
 
     # -----------------------------------------------------------------------------
@@ -107,20 +110,42 @@ def test(cfg: DictConfig):
         state0[7] = drone.motor_hover_speed()
         drone.randomize_parameters(env_randomization(cfg))
 
-        for cm, config in control_modes.items():
-            policy = BicopterPolicy(
-                obs_dim=9, 
-                act_dim=ACT_DIMS[cm]
-            )
+        def mlp_apply(params, x):
+            for i, layer in enumerate(params):
+                x = x @ layer["w"] + layer["b"]
+                if i < len(params) - 1:
+                    x = jax.nn.relu(x)
+            return x
 
-            policy.eval()
+        class JaxPolicyWrapper:
+            def __init__(self, params):
+                self.params = params
+
+            def __call__(self, obs):
+                obs_np = obs.detach().cpu().numpy()
+                actions = mlp_apply(self.params, jnp.asarray(obs_np))
+                actions_np = np.array(actions, copy=True)
+                return torch.from_numpy(actions_np).to(dtype=obs.dtype)
+
+        for cm, config in control_modes.items():
+            policy = None
 
             model_path = os.path.join(output_dir, config["file_name"])
             if not os.path.exists(model_path):
                 print(f"Warning: Model file {model_path} not found. Skipping {cm.upper()}.")
                 continue
 
-            policy.load_state_dict(torch.load(model_path, map_location="cpu"))
+            if model_path.endswith(".pkl"):
+                with open(model_path, "rb") as f:
+                    params = pickle.load(f)
+                policy = JaxPolicyWrapper(params)
+            else:
+                policy = BicopterPolicy(
+                    obs_dim=9, 
+                    act_dim=ACT_DIMS[cm]
+                )
+                policy.eval()
+                policy.load_state_dict(torch.load(model_path, map_location="cpu"))
 
             eval_traj, eval_target, eval_actions = rollout_policy(
                 state0=state0,
@@ -142,6 +167,10 @@ def test(cfg: DictConfig):
             )
 
             print(f"Loaded and rendered {cm.upper()} policy")
+
+    if not renderer.agents:
+        print("No policies were loaded. Nothing to render.")
+        return
 
     renderer.run()
     # renderer.plot_dashboard()
