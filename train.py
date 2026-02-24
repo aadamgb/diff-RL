@@ -22,11 +22,11 @@ def train(cfg: DictConfig):
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = "cpu"
-    num_envs = 1 if device == "cpu" else  2024
+    num_envs = 1 if device == "cpu" else  1024
     print(f"num_envs: {num_envs}")
-    epochs = 200
+    epochs = 500
     steps  = 300
-    horizon = 50 
+    horizon = 100 
     dt = 0.01
 
     ACT_DIMS = {
@@ -53,23 +53,24 @@ def train(cfg: DictConfig):
     loss_history = []
 
     for epoch in range(epochs):
-        # Generate random target trajectory #
+        # Generate random target trajectory 
         traj_gen.reset()
 
-        # Randomize the environmental parameters per num_envs #
+        # Randomize the environmental parameters per num_envs 
         env_params = env_randomization(cfg, num_envs, device)
         drone.randomize_parameters(env_params)
         
-        # Initialize the bicopter state #
+        # Initialize the bicopter state 
         states = torch.zeros((num_envs, 8), device=device)
+        # states = torch.zeros((num_envs, 6), device=device)
+        
         # randomize initial positon
         states[:, :2] = torch.rand((num_envs, 2), device=device) * 5.0
+
         # set initial rotors speed to hover  
         states[:, 6] = drone.motor_hover_speed()                       
         states[:, 7] = drone.motor_hover_speed()
 
-        # print(states[:, 7])
-        # break                       
 
         epoch_loss = 0.0
         num_chunks = 0
@@ -84,6 +85,7 @@ def train(cfg: DictConfig):
             
             for t in range(chunk_start, chunk_end):
                 x, y, vx, vy, theta, omega, Omega1, Omega2 = states.unbind(dim=1)
+                # x, y, vx, vy, theta, omega = states.unbind(dim=1)
                 pos_ref, vel_ref, acc_ref = traj_gen.get_target(t * dt)
 
                 # Compute errors
@@ -105,7 +107,7 @@ def train(cfg: DictConfig):
                 # Update state
                 actions = policy(obs)
                 states = drone.step(states, actions, control_mode=cm)
-
+                # states = drone.simplified_dynamics(states, actions, control_mode=cm)
 
                 chunk_traj.append(states)
                 chunk_target_pos.append(pos_ref)
@@ -159,7 +161,7 @@ def train(cfg: DictConfig):
     # Export the model
     output_dir = os.path.join(os.path.dirname(__file__), "outputs")
     os.makedirs(output_dir, exist_ok=True)
-    torch.save(policy.state_dict(), os.path.join(output_dir, f"{cm}4.pt"))
+    torch.save(policy.state_dict(), os.path.join(output_dir, f"{cm}.pt"))
     print("Policy saved!")
 
 

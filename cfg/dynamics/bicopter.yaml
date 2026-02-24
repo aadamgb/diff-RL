@@ -61,12 +61,14 @@ thrust_map: # thrust = k1 * \Omega^2 + k2 * \Omega + k3
 
 Ti_min: 0.0                   # (per motor) [N]
 Ti_max: 15.0                  # (per motor) [N]  (Ti_max = k1 * motor_speed_max ^2)
-motor_acc_min: -80000.0       # [rad/s^2]
-motor_acc_max: 50000.0        # [rad/s^2]
+motor_acc_min: -8000000.0       # [rad/s^2]
+motor_acc_max: 5000000.0        # [rad/s^2]
+
+# these are defined by Ti_min/max and k1 right?
 motor_speed_min: 150.0        # [rad/s]
 motor_speed_max: 8400.0       # [rad/s]
 
 omega_max:
 
 g: 9.81     # gravity    [m/s^^2]
-rho: 1.225  # standard atm density at sea level [kg/m^3] 
+rho: 1.225  # standard atmospheric density at sea level [kg/m^3] 

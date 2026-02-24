@@ -1,6 +1,6 @@
 import torch
-import numpy as np
 from omegaconf import DictConfig
+from dynamics.gradient_shaping import CustomGrad
 
 #    T1       T2
 #  _____    _____
@@ -43,81 +43,12 @@ class BicopterDynamics:
 
         self.eps = 1e-4
 
-    
-    def step(self, state, action, control_mode="srt"):
-        """
-        Updates the dynamics. 
-        """
-        x, y, vx, vy, theta, omega, Omega1, Omega2 = torch.unbind(state, dim=-1)
-
-        T1_cmd, T2_cmd = self._get_control(state, action, control_mode)
-
-        # Softplus and saturate commanded thrust
-        T1_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1_cmd) / self.Ti_max)
-        T2_cmd = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2_cmd) / self.Ti_max)
-
-        # Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=self.eps))
-        # Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=self.eps))
-
-        # Note for future adam: The sqrt is giving nan in backpropagation only for the lv control mode, that's why I have to clamp it in this wierd way
-        Omega1_cmd = torch.sqrt(self._differentiable_clamp(T1_cmd / self.k1, self.Omega_min**2, self.Omega_max**2))
-        Omega2_cmd = torch.sqrt(self._differentiable_clamp(T2_cmd / self.k1, self.Omega_min**2, self.Omega_max**2))
-
-        # Omega1_cmd = torch.sqrt(T1_cmd / self.k1)
-        # Omega2_cmd = torch.sqrt(T2_cmd / self.k1)
         
-        # Omega1_cmd = self._differentiable_clamp(Omega1_cmd, self.Omega_min, self.Omega_max)
-        # Omega2_cmd = self._differentiable_clamp(Omega2_cmd, self.Omega_min, self.Omega_max)
-
-        km1 = torch.where(Omega1_cmd > Omega1, self.km_up, self.km_down)
-        km2 = torch.where(Omega2_cmd > Omega2, self.km_up, self.km_down)
-        
-        # Adding the motor dynamics (delay)
-        Omega1_dot = (Omega1_cmd - Omega1) / km1
-        Omega2_dot = (Omega2_cmd - Omega2) / km2
-
-        # Saturate motor accelerations while preserving differentiability
-        Omega1_dot = self._differentiable_clamp(Omega1_dot, self.Omega_dot_min, self.Omega_dot_max)
-        Omega2_dot = self._differentiable_clamp(Omega2_dot, self.Omega_dot_min, self.Omega_dot_max)
-        
-        # Integrate to get new motor speeds
-        Omega1 = Omega1 + Omega1_dot * self.dt
-        Omega2 = Omega2 + Omega2_dot * self.dt
-
-        # Revert the conversion
-        T1 = self.k1 * Omega1**2
-        T2 = self.k1 * Omega2**2
-
-        # T1 = T1_cmd
-        # T2 = T2_cmd
-        T = T1 + T2
-        tau = self.l * (T2 - T1)
-
-        # Calculate drag forces
-        drag_x, drag_y = self.calculate_drag(vx, vy, theta)
-
-        # Translational dynamics
-        ax =  (-torch.sin(theta) * T - drag_x) / self.m
-        ay =  ( torch.cos(theta) * T - self.m * self.g - drag_y) / self.m
-        
-        # Rotational dynamics
-        alpha = tau / self.J
-
-        # Integrate (Semi-Implicit Euler)
-        vx = vx + ax * self.dt
-        vy = vy + ay * self.dt
-        omega = omega + alpha * self.dt
-
-        x = x + vx * self.dt
-        y = y + vy * self.dt
-        theta = theta + omega * self.dt
-        return torch.stack([x, y, vx, vy, theta, omega, Omega1, Omega2], dim=-1)
-    
     def calculate_drag(self, vx, vy, theta):
         """
         Calculate translational drag forces using quadratic drag model in body frame.
         Converts world-frame velocities to body frame, calculates drag, then converts back to world frame.
-        (note that rotational body drag and propeller drag is neglected)
+        (note that rotational body drag and propeller drag are neglected)
         """
         # Convert world-frame velocities to body-frame
         cos_theta = torch.cos(theta)
@@ -165,9 +96,9 @@ class BicopterDynamics:
             vx, vy = state[..., 2], state[..., 3]
             theta, omega = state[..., 4], state[..., 5]
 
-            kv = self._bounded_gain(action[..., 2], 0.0, 10.0)
-            kR = self._bounded_gain(action[..., 3], 0.0, 20.0)
-            kw = self._bounded_gain(action[..., 4], 0.0, 5.0)
+            kv = self._differentiable_clamp(action[..., 2], 0.0, 10.0)
+            kR = self._differentiable_clamp(action[..., 3], 0.0, 20.0)
+            kw = self._differentiable_clamp(action[..., 4], 0.0, 5.0)
 
             ax_des = kv * (action[..., 0] - vx)
             ay_des = kv * (action[..., 1] - vy)
@@ -195,9 +126,6 @@ class BicopterDynamics:
         else:
             raise ValueError(f"Unknown control_mode: {mode}")
         
-    def _bounded_gain(self, x, k_min, k_max):
-        return k_min + (k_max - k_min) * torch.sigmoid(x)
-    
     # TODO: Not sure wether this is the best way of clamping
     def _differentiable_clamp(self, x, xmin, xmax):
         return xmin + (xmax - xmin) * torch.sigmoid((x - xmin) / (xmax - xmin) * 6 - 3)
@@ -237,6 +165,104 @@ class BicopterDynamics:
         Returns the required motor angluar velocity to hover
         '''
         return torch.sqrt(self.m * self.g / (2 * self.k1))
+    
+
+    # ===================================================================================
+    # ===================================================================================
+
+    def full_dynamics(self, state, action, control_mode="srt"):
+        """
+        Forward dynamics model, (no need to be diffierentiable)
+        """
+        x, y, vx, vy, theta, omega, Omega1, Omega2 = torch.unbind(state, dim=-1)
+
+        T1_cmd, T2_cmd = self._get_control(state, action, control_mode)
+        T1_cmd = torch.clamp(T1_cmd, min=0, max=self.Ti_max)
+        T2_cmd = torch.clamp(T2_cmd, min=0, max=self.Ti_max)
+
+        Omega1_cmd = torch.sqrt(torch.clamp(T1_cmd / self.k1, min=self.eps))
+        Omega2_cmd = torch.sqrt(torch.clamp(T2_cmd / self.k1, min=self.eps))
+
+        km1 = torch.where(Omega1_cmd > Omega1, self.km_up, self.km_down)
+        km2 = torch.where(Omega2_cmd > Omega2, self.km_up, self.km_down)
+        
+
+        # Saturate motor accelerations while preserving differentiability
+        Omega1_dot = torch.clamp(
+            (Omega1_cmd - Omega1) / km1,
+            self.Omega_dot_min, self.Omega_dot_max
+        )
+        Omega2_dot = torch.clamp(
+            (Omega2_cmd - Omega2) / km2,
+            self.Omega_dot_min, self.Omega_dot_max
+        )
+        
+        # Integrate to get new motor speeds
+        Omega1 = Omega1 + Omega1_dot * self.dt
+        Omega2 = Omega2 + Omega2_dot * self.dt
+
+        # Revert the conversion
+        T1 = self.k1 * Omega1**2
+        T2 = self.k1 * Omega2**2
+
+        T = T1 + T2
+        tau = self.l * (T2 - T1)
+
+        # Calculate drag forces
+        drag_x, drag_y = self.calculate_drag(vx, vy, theta)
+
+        # Translational dynamics
+        ax =  (-torch.sin(theta) * T - drag_x) / self.m
+        ay =  ( torch.cos(theta) * T - self.m * self.g - drag_y) / self.m
+        
+        # Rotational dynamics
+        alpha = tau / self.J
+
+        # Integrate (Semi-Implicit Euler)
+        vx = vx + ax * self.dt
+        vy = vy + ay * self.dt
+        omega = omega + alpha * self.dt
+
+        x = x + vx * self.dt
+        y = y + vy * self.dt
+        theta = theta + omega * self.dt
+
+        return torch.stack([x, y, vx, vy, theta, omega, Omega1, Omega2], dim=-1)
+    
+
+    def simplified_dynamics(self, state, action, control_mode="srt"):
+        """
+        Backwards dynamics model, (no need to be diffierentiable)
+        """
+        x, y, vx, vy, theta, omega = torch.unbind(state[..., :6], dim=-1)
+
+        T1, T2 = self._get_control(state, action, control_mode)
+
+        T1 = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T1) / self.Ti_max)
+        T2 = self.Ti_max * torch.tanh(torch.nn.functional.softplus(T2) / self.Ti_max)
+
+        T = T1 + T2
+        tau = self.l * (T2 - T1)
+
+        ax = -torch.sin(theta) * T / self.m
+        ay =  torch.cos(theta) * T / self.m - self.g
+        alpha = tau / self.J
+
+        vx = vx + ax * self.dt
+        vy = vy + ay * self.dt
+        omega = omega + alpha * self.dt
+
+        x = x + vx * self.dt
+        y = y + vy * self.dt
+        theta = theta + omega * self.dt
+
+        return torch.stack([x, y, vx, vy, theta, omega], dim=-1)
+    
+
+    def step(self, state, action, control_mode="srt"):
+        return CustomGrad.apply(state, action, self, control_mode)
+    
+
         
 
 
