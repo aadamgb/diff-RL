@@ -6,7 +6,8 @@ This branch expands the quadcopter model to include the motor dynamics and drag.
 
 
 The complete model including motor dynamics and aerodynamic drag:
-$$ x_{t+1} = f_{\text{full}}(x_t, u_t)$$
+
+$$ x_{t+1} = f_{\text{full}}(x_{t}, u_{t})$$
 
 
 During backpropagation, gradients flow through a simplified model:
