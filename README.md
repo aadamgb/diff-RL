@@ -23,7 +23,7 @@ The motor dynamics are modeled as follow
 
 $$ T_{cmd} = \pi_{\theta}(Observation) $$
 
-$$T_{min}<T_{cmd}<T_{max}$$
+$$T_{min} \leq T_{cmd} \leq T_{max}$$
 
 $$\Omega^{\text{cmd}} = \sqrt{\frac{T_{\text{cmd}}}{k_1}}$$
 
