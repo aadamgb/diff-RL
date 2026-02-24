@@ -36,6 +36,7 @@ $$T = k_1 \Omega^2, \quad \tau = l(T_2 - T_1)$$
 
 
 The drag forces are calculated using a quadratic drag model in the body frame. World-frame velocities are rotated to the aircraft body frame using the pitch angle $\theta$. The Quadratic drag is computed as $F_{\text{drag}} = \frac{1}{2} \rho C_D A v_{\text{norm}} v$, where:
+
     - $\rho$ is air density
     - $C_D$ are drag coefficients 
     - $A$ are projected areas 
