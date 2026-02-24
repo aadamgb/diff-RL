@@ -1,5 +1,7 @@
 name: simple_2D_drone
 
+cm: ctbr  # Control mode: srt, ctbr, or lv
+
 nf: 0.2 # Noise factor
 
 sf: # Scale factor

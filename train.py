@@ -244,7 +244,7 @@ def train_P2(dt,
 
 @hydra.main(config_path="cfg/dynamics", config_name="bicopter", version_base=None)
 def main(cfg: DictConfig):
-    cm = "ctbr" 
+    cm = cfg.cm  # Get control mode from config
     dt = 0.01
     steps = 300
     horizon = 20
