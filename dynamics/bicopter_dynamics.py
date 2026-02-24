@@ -18,28 +18,28 @@ class BicopterDynamics:
         self.device = device
         self.cfg = cfg
 
-        self.l = torch.tensor(cfg.arm_l.nominal, device=device)
-        self.m = torch.tensor(cfg.mass.nominal, device=device)
-        self.J = torch.tensor(cfg.J.nominal, device=device)
+        self.l = torch.tensor(cfg.dynamics.arm_l.nominal, device=device)
+        self.m = torch.tensor(cfg.dynamics.mass.nominal, device=device)
+        self.J = torch.tensor(cfg.dynamics.J.nominal, device=device)
 
-        self.g = torch.tensor(cfg.g, device=device)
+        self.g = torch.tensor(cfg.dynamics.g, device=device)
 
-        self.C_Dx = torch.tensor(cfg.C_D.x.nominal, device=device)
-        self.C_Dy = torch.tensor(cfg.C_D.y.nominal, device=device)
-        self.rho = torch.tensor(cfg.rho, device=device)
+        self.C_Dx = torch.tensor(cfg.dynamics.C_D.x.nominal, device=device)
+        self.C_Dy = torch.tensor(cfg.dynamics.C_D.y.nominal, device=device)
+        self.rho = torch.tensor(cfg.dynamics.rho, device=device)
 
-        self.k1 = torch.tensor(cfg.thrust_map.k1.nominal, device=device)
+        self.k1 = torch.tensor(cfg.dynamics.thrust_map.k1.nominal, device=device)
 
-        self.km_up = torch.tensor(cfg.km.up.nominal, device=device)
-        self.km_down = torch.tensor(cfg.km.down.nominal, device=device)
+        self.km_up = torch.tensor(cfg.dynamics.km.up.nominal, device=device)
+        self.km_down = torch.tensor(cfg.dynamics.km.down.nominal, device=device)
 
-        self.Omega_min = torch.tensor(cfg.motor_speed_min, device=device)
-        self.Omega_max = torch.tensor(cfg.motor_speed_max, device=device)
+        self.Omega_min = torch.tensor(cfg.dynamics.motor_speed_min, device=device)
+        self.Omega_max = torch.tensor(cfg.dynamics.motor_speed_max, device=device)
         
-        self.Omega_dot_min = torch.tensor(cfg.motor_acc_min, device=device)
-        self.Omega_dot_max = torch.tensor(cfg.motor_acc_max, device=device)
+        self.Omega_dot_min = torch.tensor(cfg.dynamics.motor_acc_min, device=device)
+        self.Omega_dot_max = torch.tensor(cfg.dynamics.motor_acc_max, device=device)
 
-        self.Ti_max = torch.tensor(cfg.Ti_max, device=device)
+        self.Ti_max = torch.tensor(cfg.dynamics.Ti_max, device=device)
 
         self.eps = 1e-4
 

@@ -1,0 +1,11 @@
+defaults:
+  - dynamics: bicopter
+  - env: trck
+  - _self_
+
+cm: srt      # Default control mode (suported: srt,ctbr,lv)
+dt: 0.01
+epochs: 200
+steps: 300
+horizon: 50
+num_envs: 1024
