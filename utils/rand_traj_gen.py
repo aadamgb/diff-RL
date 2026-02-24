@@ -38,3 +38,10 @@ class RandomTrajectoryGenerator:
         acc = torch.sum(-self.amps * (self.freqs ** 2) * torch.sin(self.freqs * t + self.phases), dim=2)
 
         return pos.float(), vel.float(), acc.float()
+    
+    def get_hover_targets(self, boundary=5.0):
+        """Samples a random target position and zero velocity/acc."""
+        pos_ref = (torch.rand((self.num_envs, 2), device=self.device) - 0.5) * boundary
+        vel_ref = torch.zeros((self.num_envs, 2), device=self.device)
+        acc_ref = torch.zeros((self.num_envs, 2), device=self.device)
+        return pos_ref, vel_ref, acc_ref

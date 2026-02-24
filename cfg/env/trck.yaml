@@ -4,3 +4,4 @@ abbr: trck
 
 # CNN param
 k: 20
+num_envs: 1024

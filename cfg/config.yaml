@@ -4,8 +4,10 @@ defaults:
   - _self_
 
 cm: srt      # Default control mode (suported: srt,ctbr,lv)
+device: "cuda"
+
 dt: 0.01
-epochs: 200
-steps: 300
+epochs: ${env.epochs}
+steps: ${env.steps}
 horizon: 50
-num_envs: 1024
+num_envs: ${env.num_envs}
