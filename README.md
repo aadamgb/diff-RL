@@ -25,7 +25,7 @@ $$ T_{cmd} = \pi_{\theta}(Observation) $$
 
 $$T_{min}<T_{cmd}<T_{max}$$
 
-$$\Omega^{\text{cmd}} = \sqrt{\frac{T^{\text{cmd}}}{k_1}}$$
+$$\Omega^{\text{cmd}} = \sqrt{\frac{T_{\text{cmd}}}{k_1}}$$
 
 $$\dot{\Omega}_{\min} \leq \frac{\Omega^{\text{cmd}} - \Omega}{k_m} \leq \dot{\Omega}_{\max}$$
 
