@@ -4,6 +4,7 @@ import torch.nn as nn
 class BicopterPolicy(nn.Module):
     def __init__(self, obs_dim=9, act_dim=5):
         super().__init__()
+        self.act_dim = act_dim
         self.net = nn.Sequential(
             nn.Linear(obs_dim, 64),
             nn.ReLU(),

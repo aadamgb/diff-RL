@@ -80,10 +80,10 @@ def test(cfg: DictConfig):
             states = drone.step(states, actions, control_mode=control_mode).squeeze()
 
             # rand_mass = {"m" : 0.2}
-            # e_new =  env_randomization(cfg, num_envs=1)
-            # if t == 800:
-            #     drone.randomize_parameters(e_new)
-            #     print(f"New newparams{e_new}")
+            e_new =  env_randomization(cfg, num_envs=1)
+            if t == 400:
+                drone.randomize_parameters(e_new)
+                # print(f"New newparams{e_new}")
 
             eval_traj.append(states)
             eval_target.append(pos_ref)
@@ -118,7 +118,7 @@ def test(cfg: DictConfig):
     control_modes = {
         "srt": {"color": (0, 255, 0)},
         "ctbr": {"color": (0, 0, 255)},
-        # "lv": {"color": (255, 165, 0)},
+        "lv": {"color": (255, 165, 0)},
     }
 
     # -----------------------------------------------------------------------------
@@ -139,7 +139,7 @@ def test(cfg: DictConfig):
 
             policy_path = os.path.join(output_dir, cm, "policy.pt")
             encoder_path = os.path.join(output_dir, cm, "encoder.pt")
-            adapt_path = os.path.join(output_dir, cm, "adapt_module.pt")
+            adapt_path = os.path.join(output_dir, cm, "adaptor.pt")
             if not os.path.exists(policy_path) or not os.path.exists(encoder_path):
                 print(f"Warning: Model file not found. Skipping {cm.upper()}.")
                 continue

@@ -1,0 +1,9 @@
+name: adapt_task
+
+num_envs: 2048
+epochs: 150
+steps: 600
+device: "cuda"
+
+
+k: 20 # for the CNN

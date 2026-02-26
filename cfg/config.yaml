@@ -1,6 +1,7 @@
 defaults:
   - dynamics: bicopter
-  - env: trck
+  - task: pc
+  - algo: TBPTT 
   - _self_
 
 cm: srt      # Default control mode (suported: srt,ctbr,lv)
@@ -9,5 +10,5 @@ device: "cuda"
 dt: 0.01
 epochs: ${env.epochs}
 steps: ${env.steps}
-horizon: 50
+# horizon: 50
 num_envs: ${env.num_envs}

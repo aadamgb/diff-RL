@@ -1,7 +1,0 @@
-name: position_control
-abbr: pc
-
-num_envs: 2048
-epochs: 90
-steps: 600
-device: "cuda"
