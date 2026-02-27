@@ -5,17 +5,27 @@ from utils.rand_traj_gen import RandomTrajectoryGenerator
 from utils.randomizer import env_randomization
 from dynamics.bicopter_dynamics import BicopterDynamics
 import os
+import yaml
 
 import hydra
 from omegaconf import DictConfig
+from hydra.utils import get_original_cwd
 
 from collections import deque
 import matplotlib.pyplot as plt
+
+import numpy as np
 
 @hydra.main(config_path="cfg", config_name="config", version_base=None)
 def test(cfg: DictConfig):
     output_dir = os.path.join(os.path.dirname(__file__), "outputs")
     os.makedirs(output_dir, exist_ok=True)
+
+    def load_track_config():
+        track_path = os.path.join(get_original_cwd(), "cfg", "track", f"{cfg.track.name}.yaml")
+        with open(track_path, "r") as f:
+            track_config = yaml.safe_load(f)
+        return track_config.get("gates", [])
 
     # -----------------------------------------------------------------------------
     # One Rollout
@@ -96,6 +106,7 @@ def test(cfg: DictConfig):
 
     drone = BicopterDynamics(cfg=cfg)
     renderer = MultiTrajectoryRenderer(drone=drone, video_path=None)
+    renderer.set_track(load_track_config())
     traj_gen = RandomTrajectoryGenerator(num_envs=num_envs, device=device)
 
     ACT_DIMS = {
@@ -115,14 +126,21 @@ def test(cfg: DictConfig):
     # -----------------------------------------------------------------------------
     with torch.inference_mode():
         for cm, config in control_modes.items():
-            state0 = torch.zeros(6)
+            gates = load_track_config()
+            if gates:
+                positions = np.array([gate['position'] for gate in gates])
+                print(positions[0][0])
+                x0, y0 = positions[0][0], positions[0][1]
+            else:
+                x0, y0 = 0.0, 0.0
+            state0 = torch.tensor([x0, y0, 0.0, 0.0, 0.0, 0.0], dtype=torch.float32)
 
             policy = BicopterPolicy(
                 obs_dim=9, 
                 act_dim=ACT_DIMS[cm]
             )
 
-            policy_path = os.path.join(output_dir, cm, "pc_policy.pt")
+            policy_path = os.path.join(output_dir, cm, "race_policy.pt")
 
             if not os.path.exists(policy_path):
                 print(f"Warning: Model file not found. Skipping {cm.upper()}.")

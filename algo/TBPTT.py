@@ -22,7 +22,7 @@ class TBPTT(BaseAlgo):
             buffer_refs.append(env.pos_ref.clone())
 
             # 3. Horizon Update
-            if (t + 1) % self.cfg.horizon == 0:
+            if (t + 1) % self.cfg.algo.horizon == 0:
                 loss = self._compute_loss_position(buffer_states, buffer_refs)
                 
                 self.optimizer.zero_grad()

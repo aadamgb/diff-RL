@@ -1,0 +1,10 @@
+name: race_task
+
+
+# defaults:
+#   - track: a2rl
+
+num_envs: 2048
+epochs: 90
+steps: 600
+device: "cuda"

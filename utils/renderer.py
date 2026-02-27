@@ -22,6 +22,9 @@ class MultiTrajectoryRenderer:
         self.frame = 0
         self.running = True
 
+        self.track_gates = None
+        self.view_center = (0.0, 0.0)
+
         self.l = l
         self.dt = 0.01
         
@@ -34,9 +37,10 @@ class MultiTrajectoryRenderer:
             self.video_writer = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
 
     def to_screen(self, x, y):
+        cx, cy = self.view_center
         return (
-            int(x * self.scale + self.width // 2),
-            int(self.height // 2 - y * self.scale)
+            int((x - cx) * self.scale + self.width // 2),
+            int(self.height // 2 - (y - cy) * self.scale)
         )
 
     def add_agent(self, trajectory, target_trajectory, action, control_mode, color, name=None, z_hat_history=None, z_true=None):
@@ -50,6 +54,25 @@ class MultiTrajectoryRenderer:
             "z_hat_history": z_hat_history,
             "z_true": z_true
         })
+
+    def set_track(self, gates, auto_fit=True, padding=0.2):
+        self.track_gates = gates
+
+        if not auto_fit or not gates:
+            return
+
+        positions = np.array([gate["position"] for gate in gates], dtype=float)
+        min_xy = positions.min(axis=0)
+        max_xy = positions.max(axis=0)
+        center = (min_xy + max_xy) * 0.5
+        span = max_xy - min_xy
+        span[0] = max(span[0], 1e-6)
+        span[1] = max(span[1], 1e-6)
+
+        scale_x = (self.width * (1.0 - padding)) / span[0]
+        scale_y = (self.height * (1.0 - padding)) / span[1]
+        self.scale = min(scale_x, scale_y)
+        self.view_center = (float(center[0]), float(center[1]))
     
     
     def _save_frame(self):
@@ -91,6 +114,40 @@ class MultiTrajectoryRenderer:
         )
 
         pygame.draw.polygon(self.screen, color, [tip, left, right])
+
+    def draw_track(self):
+        if not self.track_gates:
+            return
+        # else:
+            # print("rendering the track")
+
+        positions = [gate["position"] for gate in self.track_gates]
+
+        for i in range(len(positions) - 1):
+            start = self.to_screen(positions[i][0], positions[i][1])
+            end = self.to_screen(positions[i + 1][0], positions[i + 1][1])
+            pygame.draw.line(self.screen, (150, 80, 80), start, end, 1)
+
+        for gate in self.track_gates:
+            pos = gate["position"]
+            look_at = gate["look_at"]
+            pos_px = self.to_screen(pos[0], pos[1])
+            pygame.draw.circle(self.screen, (200, 50, 50), pos_px, 6)
+
+            look = np.array(look_at, dtype=float)
+            norm = np.linalg.norm(look)
+            if norm > 1e-6:
+                look = look / norm
+                end = (pos[0] + look[0] * 1.5, pos[1] + look[1] * 1.5)
+                end_px = self.to_screen(end[0], end[1])
+                self.draw_arrow(
+                    start=pos_px,
+                    end=end_px,
+                    color=(80, 160, 255),
+                    width=2,
+                    head_len=8,
+                    head_width=6
+                )
 
     def draw_agent(self, agent):
         traj = agent["traj"]
@@ -229,6 +286,8 @@ class MultiTrajectoryRenderer:
                     self.running = False
 
             self.screen.fill((50, 50, 50))
+
+            self.draw_track()
 
             for agent in self.agents:
                 self.draw_agent(agent)

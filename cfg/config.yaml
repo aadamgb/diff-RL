@@ -2,6 +2,7 @@ defaults:
   - dynamics: bicopter
   - task: pc
   - algo: TBPTT 
+  - track: a2rl
   - _self_
 
 cm: srt      # Default control mode (suported: srt,ctbr,lv)

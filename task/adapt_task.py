@@ -13,7 +13,7 @@ def train(cfg):
     # 1. Setup Environment
     env = TrackingEnv(cfg, cfg.task.num_envs, device)
     
-    # 2. Setup Policy & Optimizer
+    # 2. Setup the policies
     policy = BicopterPolicy(obs_dim=11, act_dim=ACT_DIMS[cfg.cm]).to(device) # example act_dim
     encoder = IntrinsicsEncoder(e_dim=5, z_dim=2).to(device)
     adaptor = AdaptationModule(input_dim=(6+ACT_DIMS[cfg.cm]), z_dim=2, k=cfg.task.k).to(device)
