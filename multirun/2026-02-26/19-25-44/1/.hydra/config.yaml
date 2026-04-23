@@ -1,0 +1,146 @@
+dynamics:
+  name: simple_2D_drone
+  cm: ctbr
+  nf: 0.2
+  sf:
+    nominal: 0.5
+    randomize: true
+    min: 0.0
+    max: 1.0
+  arm_l:
+    nominal: 0.2
+    randomize: true
+    min: 0.1
+    max: 0.3
+  mass:
+    nominal: 1.0
+    randomize: true
+    min: 0.5
+    max: 1.5
+  J:
+    nominal: 0.01
+    randomize: true
+    min: 0.005
+    max: 0.015
+  C_D:
+    x:
+      nominal: 0.1
+      randomize: true
+      min: 0.05
+      max: 0.15
+    'y':
+      nominal: 0.1
+      randomize: true
+      min: 0.05
+      max: 0.15
+  c_tf:
+    nominal: 0.012
+    randomize: true
+    min: 0.005
+    max: 0.015
+  km:
+    up:
+      nominal: 0.033
+      randomize: true
+      min: 0.01
+      max: 0.05
+    down:
+      nominal: 0.044
+      randomize: true
+      min: 0.02
+      max: 0.06
+  thrust_map:
+    k1:
+      nominal: 2.0e-07
+      randomize: true
+      min: 1.0e-07
+      max: 3.0e-07
+    k2: null
+    k3: null
+  Ti_min: 0.0
+  Ti_max: 15.0
+  motor_acc_min: -80000.0
+  motor_acc_max: 50000.0
+  motor_speed_min: 150.0
+  motor_speed_max: 8400.0
+  omega_max: null
+  g: 9.81
+  rho: 1.225
+task:
+  name: race_task
+  num_envs: 2048
+  epochs: 90
+  steps: 600
+  device: cuda
+algo:
+  name: TBPTT
+  horizon: 50
+track:
+  name: a2rl
+  gates:
+  - position:
+    - 12.5
+    - 30.0
+    look_at:
+    - 0.6
+    - -0.2
+  - position:
+    - 19.0
+    - 28.0
+    look_at:
+    - 0.2
+    - -0.5
+  - position:
+    - 21.0
+    - 23.0
+    look_at:
+    - 0.2
+    - -0.8
+  - position:
+    - 23.0
+    - 15.0
+    look_at:
+    - -0.3
+    - -0.6
+  - position:
+    - 20.0
+    - 9.0
+    look_at:
+    - -0.7
+    - 0.8
+  - position:
+    - 13.0
+    - 17.0
+    look_at:
+    - -0.3
+    - -0.9
+  - position:
+    - 8.0
+    - 8.0
+    look_at:
+    - -0.2
+    - 0.7
+  - position:
+    - 6.5
+    - 15.0
+    look_at:
+    - -0.3
+    - 0.7
+  - position:
+    - 3.0
+    - 22.0
+    look_at:
+    - 0.3
+    - 0.5
+  - position:
+    - 6.0
+    - 27.5
+    look_at:
+    - 0.4
+    - 0.2
+cm: ctbr
+device: cuda
+dt: 0.01
+epochs: 200
+steps: ${env.steps}
+num_envs: ${env.num_envs}
